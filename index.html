@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>冯氏家族 · 在线家谱系统</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f0e8; margin: 0; padding: 16px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #8b5a2b; color: white; padding: 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 1.6rem; }
+        .header p { margin: 8px 0 0; opacity: 0.9; font-size: 0.85rem; }
+        .content { padding: 20px; }
+        .input-area { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .input-area input { flex: 1; padding: 12px 16px; font-size: 1rem; border: 1px solid #ddd; border-radius: 30px; outline: none; }
+        .input-area button { background: #8b5a2b; color: white; border: none; padding: 12px 24px; border-radius: 30px; cursor: pointer; font-weight: bold; }
+        .output { background: #faf8f0; border-radius: 16px; padding: 16px; max-height: 500px; overflow-y: auto; font-size: 0.85rem; line-height: 1.5; border: 1px solid #e0d6c0; }
+        .output pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 0.8rem; }
+        .clickable-name { cursor: pointer; color: #8b5a2b; text-decoration: underline dotted; }
+        .clickable-name:hover { color: #c07830; background-color: #f0e8d8; border-radius: 4px; }
+        .footer { text-align: center; padding: 16px; font-size: 0.7rem; color: #aaa; border-top: 1px solid #eee; }
+        .to-top { position: fixed; bottom: 20px; right: 20px; background: #8b5a2b; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.7; z-index: 100; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; visibility: hidden; opacity: 0; transition: visibility 0.2s, opacity 0.2s; }
+        .modal-overlay.active { visibility: visible; opacity: 1; }
+        .modal-container { background: #fffef7; border-radius: 32px; width: 90%; max-width: 700px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; }
+        .modal-header { background: #8b5a2b; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 1.2rem; }
+        .modal-close { background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 32px; height: 32px; border-radius: 40px; }
+        .modal-body { flex: 1; overflow-y: auto; padding: 16px 20px; background: #fefcf5; }
+        .file-list-modal { background: #faf8f0; border-radius: 20px; padding: 8px 0; margin-bottom: 20px; max-height: 260px; overflow-y: auto; border: 1px solid #e0d6c0; }
+        .file-item-modal { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #e8e0d0; cursor: pointer; }
+        .file-item-modal:hover { background: #f0e8d8; }
+        .file-icon-modal { font-size: 1.3rem; margin-right: 14px; width: 32px; text-align: center; }
+        .file-name-modal { flex: 1; word-break: break-all; font-size: 0.9rem; }
+        .media-preview-modal { background: white; border-radius: 20px; padding: 16px; margin-top: 8px; border: 1px solid #e0d6c0; max-height: 320px; overflow-y: auto; text-align: center; }
+        .preview-image { max-width: 100%; border-radius: 12px; }
+        .preview-text { white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 0.8rem; text-align: left; }
+        .empty-media-modal { text-align: center; padding: 32px 20px; color: #a0a090; }
+        .download-link { display: inline-block; margin-top: 12px; padding: 6px 14px; background: #8b5a2b; color: white; text-decoration: none; border-radius: 30px; font-size: 0.75rem; }
+        audio, video { max-width: 100%; border-radius: 12px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📜 冯氏家族 · 在线家谱系统</h1>
+        <p>点击姓名查看资料 | 全平台支持（苹果/安卓/电脑）</p>
+    </div>
+    <div class="content">
+        <div class="input-area">
+            <input type="text" id="startName" placeholder="请输入姓名（如：冯仁杰）" value="">
+            <button id="searchBtn">🔍 查询关系</button>
+        </div>
+        <div class="output" id="output"><pre>请输入姓名，点击查询。点击任意姓名可查看其多媒体资料。</pre></div>
+    </div>
+    <div class="footer">冯氏家谱 | 数据基于家族记录 | 点击姓名弹窗查看资料</div>
+</div>
+<div class="to-top" id="toTopBtn" style="display: none;">↑</div>
+
+<div id="mediaModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3 id="modalTitle">📁 多媒体资料</h3>
+            <button class="modal-close" id="closeModalBtn">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <div class="empty-media-modal">加载中...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== 1. 家谱数据 ====================
+const RAW_JSONL = `{"n": "冯开义", "s": "男", "sp": ["邹氏"], "info": "字辈：开"}
+{"n": "邹氏", "s": "女", "sp": ["冯开义"], "info": "配冯开义"}
+{"n": "冯学柱", "s": "男", "f": "冯开义", "sp": ["刘氏"], "info": "字辈：学"}
+{"n": "刘氏", "s": "女", "sp": ["冯学柱"], "info": "配冯学柱"}
+{"n": "冯大典", "s": "男", "f": "冯学柱", "sp": ["张氏"], "info": "字辈：大"}
+{"n": "张氏", "s": "女", "sp": ["冯大典"], "info": "配冯大典"}
+{"n": "冯成浩", "s": "男", "f": "冯大典", "sp": ["程氏"], "info": "字辈：成"}
+{"n": "程氏", "s": "女", "sp": ["冯成浩"], "info": "配冯成浩"}
+{"n": "冯越贤", "s": "男", "f": "冯成浩", "sp": ["杨氏"], "info": "字辈：贤"}
+{"n": "杨氏", "s": "女", "sp": ["冯越贤"], "info": "配冯越贤"}
+{"n": "冯达尊", "s": "男", "f": "冯越贤", "m": "杨氏", "sp": ["沈氏"], "info": "1871-1946，生于舒家乡沙岗岭"}
+{"n": "沈氏", "s": "女", "sp": ["冯达尊"], "info": "1883-1919，沈明山之妹"}
+{"n": "冯乔源", "s": "男", "f": "冯达尊", "m": "沈氏", "sp": ["敖纯益"], "info": "1901-1978，长子"}
+{"n": "敖纯益", "s": "女", "sp": ["冯乔源"], "info": "1904-1969"}
+{"n": "冯乔海", "s": "男", "f": "冯达尊", "m": "沈氏", "info": "16岁去世"}
+{"n": "冯乔江", "s": "男", "f": "冯达尊", "m": "沈氏", "sp": ["熊氏","雷文碧"], "info": "1910-1957"}
+{"n": "冯乔福", "s": "男", "f": "冯达尊", "m": "沈氏", "sp": ["熊淑均","舒继瑜"], "info": "1916-1991，家谱主要负责人"}
+{"n": "冯乔淑", "s": "女", "f": "冯达尊", "m": "沈氏", "sp": ["杨国珍"], "info": "1905-1979"}
+{"n": "熊氏", "s": "女", "sp": ["冯乔江"]}
+{"n": "雷文碧", "s": "女", "sp": ["冯乔江"]}
+{"n": "熊淑均", "s": "女", "sp": ["冯乔福"], "info": "1918年生"}
+{"n": "舒继瑜", "s": "女", "sp": ["冯乔福"], "info": "1919-1966"}
+{"n": "杨国珍", "s": "男", "sp": ["冯乔淑"], "info": "1904-1946"}
+{"n": "冯宗福", "s": "男", "f": "冯乔源", "m": "敖纯益", "sp": ["敖明节"], "info": "1926-1994"}
+{"n": "敖明节", "s": "女", "sp": ["冯宗福"], "info": "1922-1996"}
+{"n": "冯永明", "s": "女", "f": "冯宗福", "m": "敖明节", "sp": ["陈儒华"]}
+{"n": "陈儒华", "s": "男", "sp": ["冯永明"]}
+{"n": "陈伟", "s": "女", "f": "陈儒华", "m": "冯永明"}
+{"n": "冯永利", "s": "女", "f": "冯宗福", "m": "敖明节", "sp": ["陈应祥"]}
+{"n": "陈应祥", "s": "男", "sp": ["冯永利"]}
+{"n": "冯宗廉", "s": "女", "f": "冯乔源", "m": "敖纯益", "info": "1923-1940"}
+{"n": "冯宗惜", "s": "女", "f": "冯乔源", "m": "敖纯益", "sp": ["胡望平"]}
+{"n": "胡望平", "s": "男", "sp": ["冯宗惜"]}
+{"n": "冯宗玉", "s": "女", "f": "冯乔源", "m": "敖纯益", "sp": ["秦永澄"]}
+{"n": "秦永澄", "s": "男", "sp": ["冯宗玉"]}
+{"n": "冯宗禄", "s": "男", "f": "冯乔江", "sp": ["张素贞"]}
+{"n": "张素贞", "s": "女", "sp": ["冯宗禄"]}
+{"n": "冯宗国", "s": "男", "f": "冯乔江"}
+{"n": "冯素梅", "s": "女", "f": "冯乔江"}
+{"n": "冯宗琴", "s": "女", "f": "冯乔江", "m": "熊氏", "sp": ["陈位忠"]}
+{"n": "陈位忠", "s": "男", "sp": ["冯宗琴"]}
+{"n": "冯宗游", "s": "男", "f": "冯乔江", "m": "雷文碧", "sp": ["陈秀智"]}
+{"n": "陈秀智", "s": "女", "sp": ["冯宗游"]}
+{"n": "冯宗伟", "s": "女", "f": "冯乔江", "m": "雷文碧", "sp": ["董锦铭"]}
+{"n": "董锦铭", "s": "男", "sp": ["冯宗伟"]}
+{"n": "冯宗齐", "s": "男", "f": "冯乔福"}
+{"n": "冯宗德", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["何晓英"], "info": "1945年生，电子版整理人"}
+{"n": "何晓英", "s": "女", "sp": ["冯宗德"]}
+{"n": "冯永潜", "s": "男", "f": "冯宗德", "m": "何晓英", "sp": ["王海帆"]}
+{"n": "王海帆", "s": "女", "sp": ["冯永潜"]}
+{"n": "冯仁杰", "s": "男", "f": "冯永潜", "m": "王海帆", "info": "2012年生，仁字辈传人"}
+{"n": "冯宗莹", "s": "女", "f": "冯乔福", "m": "舒继瑜", "sp": ["周国樑"]}
+{"n": "周国樑", "s": "男", "sp": ["冯宗莹"]}
+{"n": "冯宗亮", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["董小南"]}
+{"n": "董小南", "s": "女", "sp": ["冯宗亮"]}
+{"n": "冯宇婷", "s": "女", "f": "冯宗亮", "m": "董小南"}
+{"n": "冯宗铭", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["简素芳"]}
+{"n": "简素芳", "s": "女", "sp": ["冯宗铭"]}
+{"n": "冯宗庸", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["李薇"]}
+{"n": "李薇", "s": "女", "sp": ["冯宗庸"]}
+{"n": "冯凌", "s": "女", "f": "冯宗庸", "m": "李薇"}
+{"n": "冯宗流", "s": "女", "f": "冯乔福", "m": "舒继瑜", "sp": ["周述易"]}
+{"n": "周述易", "s": "男", "sp": ["冯宗流"]}`;
+
+// ==================== 2. 文件清单（根据你的截图整理） ====================
+const FILE_MANIFEST = {
+    "冯乔福": ["关于筹建育仁中学的片断回忆.txt", "冯乔福.jpg", "冯子源在利他社的工作.txt", "我的生平.txt", "抗战迁渝合资企业瑞华玻璃厂的兴衰.txt", "萧萧风雨迎黎明.txt"],
+    "冯仁杰": ["mmexport1779257122466.mp4", "吕妈.txt", "读《七擒七纵收孟获》有感.txt"],
+    "冯宗伟": ["冯宗伟.jpg"],
+    "冯宗德": ["0543468466704fd9a2715c9c7d86afbfc316d1a39b1d4ba0b829a1fe1a8e1112.jpg", "冯宗德.jpg", "冯宗德2.jpg", "外祖父舒次范.txt", "录音.amr", "省科技进步三等奖.jpg", "冯宗信.jpg"],
+    "冯宗惜": ["冯宗惜.jpg"],
+    "冯宗流": ["冯宗流.png"],
+    "冯宗玉": ["冯宗玉.jpg"],
+    "冯宗福": ["冯宗福.jpg"],
+    "冯宗莹": ["冯宗莹.jpg"],
+    "冯永潜": ["冯永潜.jpg"],
+    "叶坤": ["叶坤.jpg"],
+    "周述易": ["周述易.jpg"],
+    "王昌惠": ["王昌惠.jpg"],
+    "王海帆": ["王海帆.jpg"],
+    "胡也": ["胡也.jpg"],
+    "舒继瑜": ["舒继瑜.jpg"],
+    "董玉婷": ["董玉婷.jpg"],
+    "董锦铭": ["董锦铭.jpg"],
+    "董震": ["董震.jpg"],
+    "何晓英": ["何晓英.jpg", "何晓英2.jpg"],
+    "何泽民": ["何泽民.jpg"]
+};
+
+// ==================== 3. 解析家谱 ====================
+class Person {
+    constructor(data) {
+        this.name = data.n;
+        this.sex = data.s;
+        this.father = data.f || "";
+        this.mother = data.m || "";
+        this.spouse = data.sp || [];
+        this.info = data.info || "";
+        this.children = [];
+        this.fatherObj = null;
+        this.motherObj = null;
+    }
+}
+function parseJsonl(text) {
+    const lines = text.split(/\r?\n/);
+    const people = {};
+    for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+            const obj = JSON.parse(line);
+            const p = new Person(obj);
+            people[p.name] = p;
+        } catch(e) {}
+    }
+    for (const p of Object.values(people)) {
+        if (p.father && people[p.father]) {
+            p.fatherObj = people[p.father];
+            people[p.father].children.push(p);
+        }
+        if (p.mother && people[p.mother]) {
+            p.motherObj = people[p.mother];
+            people[p.mother].children.push(p);
+        }
+    }
+    return people;
+}
+const peopleData = parseJsonl(RAW_JSONL);
+
+// ==================== 4. 关系查询 ====================
+function bfsRelationships(startName, people) {
+    const start = people[startName];
+    if (!start) return {};
+    const visited = {};
+    const queue = [{ person: start, genGap: 0, pathPersons: [], pathOps: [] }];
+    while (queue.length) {
+        const { person: cur, genGap, pathPersons, pathOps } = queue.shift();
+        if (visited[cur.name]) continue;
+        visited[cur.name] = { gap: genGap, pathPersons: [...pathPersons], pathOps: [...pathOps], person: cur };
+        if (cur.fatherObj) queue.push({ person: cur.fatherObj, genGap: genGap+1, pathPersons: [...pathPersons, cur.fatherObj], pathOps: [...pathOps, 'f'] });
+        if (cur.motherObj) queue.push({ person: cur.motherObj, genGap: genGap+1, pathPersons: [...pathPersons, cur.motherObj], pathOps: [...pathOps, 'm'] });
+        for (const child of cur.children) queue.push({ person: child, genGap: genGap-1, pathPersons: [...pathPersons, child], pathOps: [...pathOps, 'ch'] });
+        for (const spName of cur.spouse) if (people[spName]) queue.push({ person: people[spName], genGap: genGap, pathPersons: [...pathPersons, people[spName]], pathOps: [...pathOps, 'sp'] });
+    }
+    return visited;
+}
+function getRelationshipSimple(start, target, pathOps) {
+    const upSteps = pathOps.filter(op => op === 'f' || op === 'm').length;
+    const downSteps = pathOps.filter(op => op === 'ch').length;
+    if (pathOps.length === 1 && pathOps[0] === 'sp') return "配偶";
+    if (upSteps === 1 && downSteps === 0) return target.sex === '男' ? "父亲" : "母亲";
+    if (upSteps === 2 && downSteps === 0) return target.sex === '男' ? "祖父" : "祖母";
+    if (upSteps === 3 && downSteps === 0) return target.sex === '男' ? "曾祖父" : "曾祖母";
+    if (upSteps === 0 && downSteps === 1) return target.sex === '男' ? "儿子" : "女儿";
+    if (upSteps === 0 && downSteps === 2) return target.sex === '男' ? "孙子" : "孙女";
+    if (upSteps === 0 && downSteps === 3) return target.sex === '男' ? "曾孙" : "曾孙女";
+    if (upSteps === 1 && downSteps === 1) {
+        const sibling = target.children.find(c => c.name === start?.name);
+        if (sibling) return target.sex === '男' ? (sibling.sex === '男' ? "侄子" : "侄女") : (sibling.sex === '男' ? "外甥" : "外甥女");
+    }
+    return target.sex === '男' ? "亲属" : "亲属";
+}
+function printRelationships(startName, relations, people) {
+    const start = people[startName];
+    if (!start) return "查无此人";
+    const lines = [`========== 从 ${startName} 出发的家族关系 ==========`];
+    const byGap = {};
+    for (const [name, info] of Object.entries(relations)) {
+        if (name === startName) continue;
+        const gap = info.gap;
+        if (!byGap[gap]) byGap[gap] = [];
+        byGap[gap].push({ name, person: info.person, pathOps: info.pathOps });
+    }
+    const sortedGaps = Object.keys(byGap).map(Number).sort((a,b) => b - a);
+    for (const gap of sortedGaps) {
+        if (gap > 0) lines.push(`\n【上${gap}辈】`);
+        else if (gap === 0) lines.push(`\n【同辈】`);
+        else lines.push(`\n【下${-gap}辈】`);
+        for (const item of byGap[gap]) {
+            const rel = getRelationshipSimple(start, item.person, item.pathOps);
+            let spouseText = "";
+            if (item.person.spouse && item.person.spouse.length) {
+                spouseText = ` 配 ${item.person.spouse.join('、')}`;
+            }
+            lines.push(`  ${rel}：${item.name}${spouseText}`);
+        }
+    }
+    return lines.join('\n');
+}
+
+// ==================== 5. 多媒体弹窗（在线版） ====================
+function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
+
+async function showPersonMediaInModal(personName) {
+    const modal = document.getElementById('mediaModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    modalTitle.innerHTML = `📁 ${personName} 的资料`;
+    modalBody.innerHTML = `<div class="empty-media-modal">⏳ 正在加载文件列表...</div>`;
+    modal.classList.add('active');
+    
+    const files = FILE_MANIFEST[personName];
+    if (!files || files.length === 0) {
+        modalBody.innerHTML = `<div class="empty-media-modal">📭 该人物暂无资料文件</div>`;
+        return;
+    }
+    
+    const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+    const personDir = `${baseUrl}资料/${encodeURIComponent(personName)}/`;
+    
+    let fileListHtml = `<div class="file-list-modal">`;
+    for (const fname of files) {
+        const ext = fname.split('.').pop().toLowerCase();
+        let icon = '📄';
+        if (['jpg','jpeg','png','gif'].includes(ext)) icon = '🖼️';
+        else if (['mp3','wav','amr'].includes(ext)) icon = '🎵';
+        else if (['mp4','mov'].includes(ext)) icon = '🎬';
+        else if (ext === 'txt') icon = '📃';
+        fileListHtml += `<div class="file-item-modal" data-filename="${escapeHtml(fname)}"><span class="file-icon-modal">${icon}</span><span class="file-name-modal">${escapeHtml(fname)}</span></div>`;
+    }
+    fileListHtml += `</div><div id="modalPreviewArea" class="media-preview-modal"><div class="empty-media-modal">点击上方文件预览</div></div>`;
+    modalBody.innerHTML = fileListHtml;
+    
+    // 绑定预览事件
+    document.querySelectorAll('.file-item-modal').forEach(el => {
+        const fname = el.getAttribute('data-filename');
+        const fileUrl = `${personDir}${encodeURIComponent(fname)}`;
+        el.onclick = async () => {
+            const previewArea = document.getElementById('modalPreviewArea');
+            const ext = fname.split('.').pop().toLowerCase();
+            if (['jpg','jpeg','png','gif'].includes(ext)) {
+                previewArea.innerHTML = `<img src="${fileUrl}" class="preview-image" style="max-width:100%" onerror="this.parentElement.innerHTML='<div class=\'empty-media-modal\'>文件不存在或无法加载</div>'"><br><a href="${fileUrl}" download class="download-link">⬇️ 下载</a>`;
+            } else if (['mp3','wav','amr'].includes(ext)) {
+                previewArea.innerHTML = `<audio controls src="${fileUrl}" style="width:100%"></audio><br><a href="${fileUrl}" download class="download-link">⬇️ 下载</a>`;
+            } else if (['mp4','mov'].includes(ext)) {
+                previewArea.innerHTML = `<video controls src="${fileUrl}" style="max-width:100%"></video><br><a href="${fileUrl}" download class="download-link">⬇️ 下载</a>`;
+            } else if (ext === 'txt') {
+                try {
+                    const resp = await fetch(fileUrl);
+                    const text = await resp.text();
+                    previewArea.innerHTML = `<div class="preview-text">${escapeHtml(text)}</div><a href="${fileUrl}" download class="download-link">⬇️ 下载</a>`;
+                } catch(e) {
+                    previewArea.innerHTML = `<div class="empty-media-modal">无法加载文本</div>`;
+                }
+            } else {
+                previewArea.innerHTML = `<div class="empty-media-modal"><a href="${fileUrl}" target="_blank">点击下载文件</a></div>`;
+            }
+        };
+    });
+}
+
+// ==================== 6. 页面交互 ====================
+document.getElementById('searchBtn').addEventListener('click', () => {
+    const name = document.getElementById('startName').value.trim();
+    if (!name) { alert('请输入姓名'); return; }
+    if (!peopleData[name]) { document.getElementById('output').innerHTML = `<pre>❌ 未找到：${name}</pre>`; return; }
+    const relations = bfsRelationships(name, peopleData);
+    const outputText = printRelationships(name, relations, peopleData);
+    let html = `<pre>${outputText}</pre>`;
+    // 将输出中的姓名转换为可点击
+    for (const person of Object.keys(peopleData)) {
+        const regex = new RegExp(`(${person})`, 'g');
+        html = html.replace(regex, `<span class="clickable-name" data-name="${person}">$1</span>`);
+    }
+    document.getElementById('output').innerHTML = html;
+    
+    // 绑定点击事件
+    document.querySelectorAll('.clickable-name').forEach(el => {
+        el.onclick = () => showPersonMediaInModal(el.getAttribute('data-name'));
+    });
+});
+
+document.getElementById('output').addEventListener('click', (e) => {
+    let target = e.target;
+    if (target.classList && target.classList.contains('clickable-name')) {
+        showPersonMediaInModal(target.getAttribute('data-name'));
+    }
+});
+
+// 模态框关闭
+document.getElementById('closeModalBtn').onclick = () => document.getElementById('mediaModal').classList.remove('active');
+document.getElementById('mediaModal').onclick = (e) => { if (e.target === document.getElementById('mediaModal')) document.getElementById('mediaModal').classList.remove('active'); };
+
+// 回到顶部
+window.onscroll = () => document.getElementById('toTopBtn').style.display = window.scrollY > 300 ? 'flex' : 'none';
+document.getElementById('toTopBtn').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+</script>
+</body>
+</html>

@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>家族关系 · 关系树 + 弹窗多媒体</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f0e8; margin: 0; padding: 16px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: #8b5a2b; color: white; padding: 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 1.6rem; }
+        .header p { margin: 8px 0 0; opacity: 0.9; font-size: 0.85rem; }
+        .content { padding: 20px; }
+        .folder-select-area { background: #f0e8d8; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .folder-status { font-size: 0.85rem; color: #2c5a2c; font-weight: bold; }
+        .folder-btn { background: #8b5a2b; color: white; border: none; padding: 8px 20px; border-radius: 30px; cursor: pointer; font-size: 0.85rem; }
+        .folder-btn:hover { background: #6b4218; }
+        .input-area { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .input-area input { flex: 1; padding: 12px 16px; font-size: 1rem; border: 1px solid #ddd; border-radius: 30px; outline: none; }
+        .input-area button { background: #8b5a2b; color: white; border: none; padding: 12px 24px; border-radius: 30px; cursor: pointer; font-weight: bold; }
+        .output { background: #faf8f0; border-radius: 16px; padding: 16px; max-height: 600px; overflow-y: auto; font-size: 0.85rem; line-height: 1.5; border: 1px solid #e0d6c0; }
+        .output pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: monospace; font-size: 0.8rem; }
+        .clickable-name { cursor: pointer; color: #8b5a2b; text-decoration: underline dotted; transition: all 0.2s; }
+        .clickable-name:hover { color: #c07830; background-color: #f0e8d8; border-radius: 4px; }
+        .footer { text-align: center; padding: 16px; font-size: 0.7rem; color: #aaa; border-top: 1px solid #eee; }
+        .to-top { position: fixed; bottom: 20px; right: 20px; background: #8b5a2b; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.7; z-index: 100; }
+        .to-top:hover { opacity: 1; }
+        audio, video { max-width: 100%; }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000;
+            visibility: hidden; opacity: 0; transition: visibility 0.2s, opacity 0.2s;
+        }
+        .modal-overlay.active { visibility: visible; opacity: 1; }
+        .modal-container {
+            background: #fffef7; border-radius: 32px; width: 90%; max-width: 700px; max-height: 85vh;
+            display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;
+        }
+        .modal-header {
+            background: #8b5a2b; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold;
+        }
+        .modal-header h3 { margin: 0; font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .modal-close {
+            background: none; border: none; color: white; font-size: 28px; cursor: pointer;
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 40px;
+        }
+        .modal-close:hover { background: rgba(255, 255, 255, 0.2); }
+        .modal-body { flex: 1; overflow-y: auto; padding: 16px 20px; background: #fefcf5; }
+        .file-list-modal {
+            background: #faf8f0; border-radius: 20px; padding: 8px 0; margin-bottom: 20px;
+            max-height: 260px; overflow-y: auto; border: 1px solid #e0d6c0;
+        }
+        .file-item-modal {
+            display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #e8e0d0; cursor: pointer; transition: background 0.15s;
+        }
+        .file-item-modal:hover { background: #f0e8d8; }
+        .file-icon-modal { font-size: 1.3rem; margin-right: 14px; width: 32px; text-align: center; }
+        .file-name-modal { flex: 1; word-break: break-all; font-size: 0.9rem; }
+        .media-preview-modal {
+            background: white; border-radius: 20px; padding: 16px; margin-top: 8px; border: 1px solid #e0d6c0; max-height: 320px; overflow-y: auto;
+        }
+        .preview-image { max-width: 100%; border-radius: 12px; display: block; margin: 0 auto; }
+        .preview-text { white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 0.8rem; }
+        .empty-media-modal { text-align: center; padding: 32px 20px; color: #a0a090; }
+        .download-link-modal {
+            display: inline-block; margin-top: 12px; padding: 6px 14px; background: #8b5a2b; color: white;
+            text-decoration: none; border-radius: 30px; font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📜 家族关系 · 关系树 + 弹窗多媒体</h1>
+        <p>查询亲属关系 | 点击姓名弹窗查看资料 | 自动定位同目录「资料」文件夹</p>
+    </div>
+    <div class="content">
+        <div class="folder-select-area">
+            <span class="folder-status" id="folderStatus">⚙️ 请点击按钮授权「资料」文件夹</span>
+            <button class="folder-btn" id="selectFolderBtn">📁 一键定位资料夹</button>
+        </div>
+        <div class="input-area">
+            <input type="text" id="startName" placeholder="请输入姓名" value="冯宗德">
+            <button id="searchBtn">🔍 查询关系</button>
+        </div>
+        <div class="output" id="output"><pre>正在加载家谱数据...</pre></div>
+    </div>
+    <div class="footer">家族关系 | 点击姓名弹窗查看资料 | 自动定位到与网页同目录的「资料」文件夹，仅首次授权</div>
+</div>
+<div class="to-top" id="toTopBtn" style="display: none;">↑</div>
+
+<div id="mediaModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h3 id="modalTitle">📁 多媒体资料</h3>
+            <button class="modal-close" id="closeModalBtn">&times;</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <div class="empty-media-modal">加载中...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===================== 家谱数据 =====================
+const REAL_JSONL = `{"n": "冯开义", "s": "男", "sp": ["邹氏"], "info": "字辈：开"}
+{"n": "邹氏", "s": "女", "sp": ["冯开义"], "info": "配冯开义"}
+{"n": "冯学柱", "s": "男", "f": "冯开义", "sp": ["刘氏"], "info": "字辈：学"}
+{"n": "刘氏", "s": "女", "sp": ["冯学柱"], "info": "配冯学柱"}
+{"n": "冯大典", "s": "男", "f": "冯学柱", "sp": ["张氏"], "info": "字辈：大"}
+{"n": "张氏", "s": "女", "sp": ["冯大典"], "info": "配冯大典"}
+{"n": "冯成浩", "s": "男", "f": "冯大典", "sp": ["程氏"], "info": "字辈：成"}
+{"n": "程氏", "s": "女", "sp": ["冯成浩"], "info": "配冯成浩"}
+{"n": "冯越贤", "s": "男", "f": "冯成浩", "sp": ["杨氏"], "info": "字辈：贤"}
+{"n": "杨氏", "s": "女", "sp": ["冯越贤"], "info": "配冯越贤"}
+{"n": "冯达尊", "s": "男", "f": "冯越贤", "m": "杨氏", "sp": ["沈氏"], "info": "1871 1946，生于舒家乡沙岗岭，卒于石船铧厂"}
+{"n": "沈氏", "s": "女", "f": "沈父", "m": "沈母", "sp": ["冯达尊"], "info": "1883 1919，生于石龙乡响水洞，沈明山之妹"}
+{"n": "冯乔源", "s": "男", "f": "冯达尊", "m": "沈氏", "sp": ["敖纯益"], "info": "1901 1978，长子"}
+{"n": "敖纯益", "s": "女", "sp": ["冯乔源"], "info": "1904 1969，配冯乔源"}
+{"n": "冯乔海", "s": "男", "f": "冯达尊", "m": "沈氏", "sp": [], "info": "16岁去世"}
+{"n": "冯乔江", "s": "男", "f": "冯达尊", "m": "沈氏", "sp": ["熊氏", "雷文碧"], "info": "1910 1957"}
+{"n": "冯乔福", "s": "男", "f": "冯达尊", "m": "沈氏", "sp": ["熊淑均", "舒继瑜"], "info": "1916 1991，录入家谱主要负责人"}
+{"n": "冯乔淑", "s": "女", "f": "冯达尊", "m": "沈氏", "sp": ["杨国珍"], "info": "1905 1979，冯达尊之女，外嫁杨氏"}
+{"n": "熊氏", "s": "女", "sp": ["冯乔江"], "info": "配冯乔江"}
+{"n": "雷文碧", "s": "女", "sp": ["冯乔江"], "info": "配冯乔江"}
+{"n": "熊淑均", "s": "女", "sp": ["冯乔福"], "info": "1918年生，配冯乔福"}
+{"n": "舒继瑜", "s": "女", "f": "舒次范", "m": "外婆", "sp": ["冯乔福"], "info": "1919 1966，配冯乔福"}
+{"n": "杨国珍", "s": "男", "sp": ["冯乔淑"], "info": "1904 1946，冯乔淑之夫"}
+{"n": "冯宗福", "s": "男", "f": "冯乔源", "m": "敖纯益", "sp": ["敖明节"], "info": "1926 1994，生于石龙乡马鞍塘"}
+{"n": "敖明节", "s": "女", "sp": ["冯宗福"], "info": "1922 1996，配冯宗福"}
+{"n": "冯永明", "s": "女", "f": "冯宗福", "m": "敖明节", "sp": ["陈儒华"], "info": "1944年生，曾孙女"}
+{"n": "陈儒华", "s": "男", "sp": ["冯永明"], "info": "1940年生，曾孙女婿"}
+{"n": "陈伟", "s": "女", "f": "陈儒华", "m": "冯永明", "sp": [], "info": "1969年生，外玄孙女"}
+{"n": "杨诗皓", "s": "男", "m": "陈伟", "sp": [], "info": "1996年生，外来孙"}
+{"n": "陈俞", "s": "男", "f": "陈儒华", "m": "冯永明", "sp": ["游尊秀"], "info": "1971年生，外玄孙"}
+{"n": "陈洪宇", "s": "男", "f": "陈俞", "m": "游尊秀", "sp": [], "info": "2010年生，外来孙"}
+{"n": "冯永利", "s": "女", "f": "冯宗福", "m": "敖明节", "sp": ["陈应祥"], "info": "1951年生"}
+{"n": "陈应祥", "s": "男", "sp": ["冯永利"], "info": "1950年生"}
+{"n": "陈静", "s": "女", "f": "陈应祥", "m": "冯永利", "sp": [], "info": "1979年生"}
+{"n": "陈兪双", "s": "女", "m": "陈静", "sp": [], "info": "2007年生"}
+{"n": "冯宗廉", "s": "女", "f": "冯乔源", "m": "敖纯益", "sp": [], "info": "1923 1940"}
+{"n": "冯宗惜", "s": "女", "f": "冯乔源", "m": "敖纯益", "sp": ["胡望平"], "info": "1929 2014"}
+{"n": "胡望平", "s": "男", "sp": ["冯宗惜"], "info": "1926 2004，配冯宗惜"}
+{"n": "胡宾", "s": "女", "f": "胡望平", "m": "冯宗惜", "sp": ["李金祥"], "info": "1955年生"}
+{"n": "李金祥", "s": "男", "sp": ["胡宾"], "info": "配胡宾"}
+{"n": "李楠", "s": "女", "f": "李金祥", "m": "胡宾", "sp": ["辛州蔺"], "info": "1983年生"}
+{"n": "辛州蔺", "s": "男", "sp": ["李楠"], "info": "配李楠"}
+{"n": "辛冰乐", "s": "女", "m": "李楠", "sp": [], "info": "2024年生"}
+{"n": "李爻雪", "s": "女", "f": "", "m": "李楠", "sp": [], "info": "2019年生"}
+{"n": "胡也", "s": "男", "f": "胡望平", "m": "冯宗惜", "sp": ["黄鸥"], "info": "1957年生，配黄鸥"}
+{"n": "黄鸥", "s": "女", "sp": ["胡也"], "info": "配胡也"}
+{"n": "胡思向", "s": "男", "f": "胡也", "m": "黄鸥", "sp": ["饶晓莉"], "info": "1990年生，配饶晓莉"}
+{"n": "饶晓莉", "s": "女", "sp": ["胡思向"], "info": "配胡思向"}
+{"n": "胡沐涵", "s": "女", "f": "胡思向", "m": "饶晓莉", "sp": [], "info": "2019年生"}
+{"n": "胡竹东", "s": "男", "f": "胡望平", "m": "冯宗惜", "sp": ["张理红"], "info": "1963年生，配张理红"}
+{"n": "张理红", "s": "女", "sp": ["胡竹东"], "info": "配胡竹东"}
+{"n": "胡思齐", "s": "男", "f": "胡竹东", "m": "张理红", "sp": ["彭阳洁"], "info": "1993年生，配彭阳洁"}
+{"n": "彭阳洁", "s": "女", "sp": ["胡思齐"], "info": "配胡思齐"}
+{"n": "冯宗玉", "s": "女", "f": "冯乔源", "m": "敖纯益", "sp": ["秦永澄"], "info": "1937 2017"}
+{"n": "秦永澄", "s": "男", "sp": ["冯宗玉"], "info": "1934年生"}
+{"n": "秦勇", "s": "男", "f": "秦永澄", "m": "冯宗玉", "sp": ["刘平"], "info": "1963年生"}
+{"n": "刘平", "s": "女", "sp": ["秦勇"], "info": "配秦勇"}
+{"n": "秦钰杭", "s": "男", "f": "秦勇", "m": "刘平", "sp": [], "info": "1987年生"}
+{"n": "秦华", "s": "女", "f": "秦永澄", "m": "冯宗玉", "sp": [], "info": "1966年生"}
+{"n": "杨松谕", "s": "男", "m": "秦华", "sp": [], "info": "1991年生"}
+{"n": "秦文", "s": "女", "f": "秦永澄", "m": "冯宗玉", "sp": ["李道禹"], "info": "1969年生"}
+{"n": "李道禹", "s": "男", "sp": ["秦文"], "info": "配秦文"}
+{"n": "李琪", "s": "男", "f": "李道禹", "m": "秦文", "sp": [], "info": "1991年生"}
+{"n": "秦红", "s": "女", "f": "秦永澄", "m": "冯宗玉", "sp": ["何建"], "info": "1971年生"}
+{"n": "何建", "s": "男", "sp": ["秦红"], "info": "配秦红"}
+{"n": "何京桥", "s": "男", "f": "何建", "m": "秦红", "sp": ["何小雨"], "info": "1996年生"}
+{"n": "何小雨", "s": "女", "sp": ["何京桥"], "info": "配何京桥"}
+{"n": "何星铭", "s": "男", "f": "何京桥", "m": "何小雨", "sp": [], "info": "2023年生"}
+{"n": "冯宗禄", "s": "男", "f": "冯乔江", "sp": ["张素贞"], "info": "1928年生"}
+{"n": "张素贞", "s": "女", "sp": ["冯宗禄"], "info": "配冯宗禄"}
+{"n": "冯永仪", "s": "女", "f": "冯宗禄", "m": "张素贞", "sp": [], "info": ""}
+{"n": "冯永江", "s": "女", "f": "冯宗禄", "m": "张素贞", "sp": [], "info": ""}
+{"n": "冯宗国", "s": "男", "f": "冯乔江", "sp": [], "info": ""}
+{"n": "冯素梅", "s": "女", "f": "冯乔江", "sp": [], "info": "1934年生"}
+{"n": "冯宗琴", "s": "女", "f": "冯乔江", "m": "熊氏", "sp": ["陈位忠"], "info": "1935年生"}
+{"n": "陈位忠", "s": "男", "sp": ["冯宗琴"], "info": "1934年生，配冯宗琴"}
+{"n": "陈蓉", "s": "女", "f": "陈位忠", "m": "冯宗琴", "sp": ["文太平"], "info": "1958年生"}
+{"n": "文太平", "s": "男", "sp": ["陈蓉"], "info": "配陈蓉"}
+{"n": "文峰", "s": "男", "f": "文太平", "m": "陈蓉", "sp": [], "info": "1983年生"}
+{"n": "陈晋娟", "s": "女", "f": "陈位忠", "m": "冯宗琴", "sp": ["蒋洪贵"], "info": "1961年生"}
+{"n": "蒋洪贵", "s": "男", "sp": ["陈晋娟"], "info": "配陈晋娟"}
+{"n": "蒋玥", "s": "男", "f": "蒋洪贵", "m": "陈晋娟", "sp": [], "info": "1986年生"}
+{"n": "陈勇", "s": "男", "f": "陈位忠", "m": "冯宗琴", "sp": ["周君"], "info": "1966年生"}
+{"n": "周君", "s": "女", "sp": ["陈勇"], "info": "配陈勇"}
+{"n": "冯宗游", "s": "男", "f": "冯乔江", "m": "雷文碧", "sp": ["陈秀智"], "info": "1949 1988"}
+{"n": "陈秀智", "s": "女", "sp": ["冯宗游"], "info": "配冯宗游"}
+{"n": "冯霞", "s": "女", "f": "冯宗游", "m": "陈秀智", "sp": [], "info": "1977年生"}
+{"n": "冯宗伟", "s": "女", "f": "冯乔江", "m": "雷文碧", "sp": ["董锦铭"], "info": "1953年生"}
+{"n": "董锦铭", "s": "男", "sp": ["冯宗伟"], "info": "1950年生，配冯宗伟"}
+{"n": "董玉婷", "s": "女", "f": "董锦铭", "m": "冯宗伟", "sp": ["刘峻"], "info": "1978年生"}
+{"n": "刘峻", "s": "男", "sp": ["董玉婷"], "info": "配董玉婷"}
+{"n": "刘恒睿", "s": "男", "f": "刘峻", "m": "董玉婷", "sp": [], "info": "2009年生"}
+{"n": "刘恒智", "s": "男", "f": "刘峻", "m": "董玉婷", "sp": [], "info": "2015年生"}
+{"n": "舒次范", "s": "男", "f": "舒次范父", "m": "舒次范母", "sp": ["外婆"], "info": "舒继瑜、舒继仁之父"}
+{"n": "舒继仁", "s": "女", "f": "舒次范", "m": "外婆", "sp": ["程相云"], "info": "舒继瑜之姐妹"}
+{"n": "程相云", "s": "男", "f": "", "m": "", "sp": ["舒继仁"], "info": "配舒继仁"}
+{"n": "程劲", "s": "女", "f": "程相云", "m": "舒继仁", "sp": [], "info": "程相云与舒继仁之女"}
+{"n": "舒程", "s": "女", "f": "程相云", "m": "舒继仁", "sp": ["蔡京"], "info": "程相云与舒继仁之女"}
+{"n": "蔡京", "s": "男", "f": "", "m": "", "sp": ["舒程"], "info": "配舒程"}
+{"n": "蔡子玉", "s": "男", "f": "蔡京", "m": "舒程", "sp": [], "info": "蔡京与舒程之子"}
+{"n": "冯宗齐", "s": "男", "f": "冯乔福", "sp": [], "info": "1940年生，生于石船乡"}
+{"n": "冯宗德", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["何晓英"], "info": "1945年生，本家谱电子版整理人"}
+{"n": "何晓英", "s": "女", "f": "何泽民", "sp": ["冯宗德"], "info": "1949年生，成都人"}
+{"n": "冯永潜", "s": "男", "f": "冯宗德", "m": "何晓英", "sp": ["王海帆"], "info": "1978年生，成都人"}
+{"n": "王海帆", "s": "女", "f": "王小玉", "m": "王静平", "sp": ["冯永潜"], "info": "1982年生，太原人"}
+{"n": "冯仁杰", "s": "男", "f": "冯永潜", "m": "王海帆", "sp": [], "info": "2012年生，冯氏“仁”字辈传人"}
+{"n": "冯宗莹", "s": "女", "f": "冯乔福", "m": "舒继瑜", "sp": ["周国樑"], "info": "1946年生"}
+{"n": "周国樑", "s": "男", "f": "周琳", "m": "秦昌静", "sp": ["冯宗莹"], "info": "1939年生，潼南人"}
+{"n": "周岚", "s": "女", "f": "周国樑", "m": "冯宗莹", "sp": ["曾峰"], "info": "1977年生"}
+{"n": "曾峰", "s": "男", "sp": ["周岚"], "info": "1977年生"}
+{"n": "曾小梓", "s": "女", "f": "曾峰", "m": "周岚", "sp": [], "info": "2014年生，孝外玄孙女"}
+{"n": "冯宗亮", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["董小南"], "info": "1947年生"}
+{"n": "董小南", "s": "女", "f": "董震", "m": "王昌惠", "sp": ["冯宗亮"], "info": "1951年生"}
+{"n": "董震", "s": "男", "f": "", "m": "", "sp": ["王昌惠"], "info": "董小南之父"}
+{"n": "王昌惠", "s": "女", "f": "", "m": "", "sp": ["董震"], "info": "董小南之母"}
+{"n": "董宪政", "s": "男", "f": "董震", "m": "王昌惠", "sp": [], "info": "董小南之大弟"}
+{"n": "董宪章", "s": "男", "f": "董震", "m": "王昌惠", "sp": [], "info": "董小南之小弟"}
+{"n": "冯宇婷", "s": "女", "f": "冯宗亮", "m": "董小南", "sp": ["黄龙飞"], "info": "1981年生"}
+{"n": "黄龙飞", "s": "男", "sp": ["冯宇婷"], "info": "1980年生"}
+{"n": "何彦辰", "s": "男", "m": "冯宇婷", "sp": [], "info": "2013年生"}
+{"n": "黄泽锋", "s": "男", "f": "黄龙飞", "m": "冯宇婷", "sp": [], "info": "2022年生"}
+{"n": "冯宗铭", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["简素芳"], "info": "1948 2023"}
+{"n": "简素芳", "s": "女", "sp": ["冯宗铭"], "info": "1952年生"}
+{"n": "冯永强", "s": "男", "f": "冯宗铭", "m": "简素芳", "sp": [], "info": "1980年生"}
+{"n": "冯宗庸", "s": "男", "f": "冯乔福", "m": "舒继瑜", "sp": ["李薇"], "info": "1951 2019"}
+{"n": "李薇", "s": "女", "sp": ["冯宗庸"], "info": "1951 2023"}
+{"n": "冯凌", "s": "女", "f": "冯宗庸", "m": "李薇", "sp": [], "info": "1979年生"}
+{"n": "冯宗流", "s": "女", "f": "冯乔福", "m": "舒继瑜", "sp": ["周述易"], "info": "1950年生"}
+{"n": "周述易", "s": "男", "f": "周从化", "m": "李含秋", "sp": ["冯宗流"], "info": "1944 1987"}
+{"n": "周从化", "s": "男", "sp": ["李含秋"], "info": "周述易之父"}
+{"n": "李含秋", "s": "女", "sp": ["周从化"], "info": "周述易之母"}
+{"n": "周晓龙", "s": "男", "f": "周述易", "m": "冯宗流", "sp": ["文小倩"], "info": "1976年生"}
+{"n": "文小倩", "s": "女", "sp": ["周晓龙"], "info": "1982年生"}
+{"n": "周厚霖", "s": "男", "f": "周晓龙", "m": "文小倩", "sp": [], "info": "2008年生"}
+{"n": "周沛霖", "s": "女", "f": "周晓龙", "m": "文小倩", "sp": [], "info": "2015年生"}
+{"n": "杨礼润", "s": "男", "f": "杨国珍", "m": "冯乔淑", "sp": ["唐万芝"], "info": "1928 1988"}
+{"n": "唐万芝", "s": "女", "sp": ["杨礼润"], "info": "配杨礼润"}
+{"n": "杨礼仪", "s": "男", "f": "杨国珍", "m": "冯乔淑", "sp": ["王应芳"], "info": "1944 1985"}
+{"n": "王应芳", "s": "女", "sp": ["杨礼仪"], "info": "1958年生"}
+{"n": "杨伟", "s": "男", "f": "杨礼仪", "m": "王应芳", "sp": [], "info": "1981年生，由杨礼娅抚养"}
+{"n": "杨礼节", "s": "女", "f": "杨国珍", "m": "冯乔淑", "sp": ["茅行柏"], "info": "1935 2022"}
+{"n": "茅行柏", "s": "男", "sp": ["杨礼节"], "info": "1933 2020，江苏南通人"}
+{"n": "茅杭川", "s": "男", "f": "茅行柏", "m": "杨礼节", "sp": ["曾翼蓉"], "info": "1963年生"}
+{"n": "曾翼蓉", "s": "女", "sp": ["茅杭川"], "info": "配茅杭川"}
+{"n": "茅葳", "s": "女", "f": "茅杭川", "m": "曾翼蓉", "sp": [], "info": "1992年生"}
+{"n": "茅杭春", "s": "男", "f": "茅行柏", "m": "杨礼节", "sp": ["闫金凤"], "info": "1964年生"}
+{"n": "闫金凤", "s": "女", "sp": ["茅杭春"], "info": "配茅杭春"}
+{"n": "茅娅楠", "s": "女", "f": "茅杭春", "m": "闫金凤", "sp": [], "info": "1988年生"}
+{"n": "茅立新", "s": "男", "f": "茅行柏", "m": "杨礼节", "sp": ["高怀萍"], "info": "1968年生"}
+{"n": "高怀萍", "s": "女", "sp": ["茅立新"], "info": "配茅立新"}
+{"n": "茅滢", "s": "女", "f": "茅立新", "m": "高怀萍", "sp": ["张琰"], "info": "1993年生"}
+{"n": "张琰", "s": "男", "sp": ["茅滢"], "info": "配茅滢"}
+{"n": "茅立胜", "s": "男", "f": "茅行柏", "m": "杨礼节", "sp": ["范永阁"], "info": "1970年生"}
+{"n": "范永阁", "s": "女", "sp": ["茅立胜"], "info": "配茅立胜"}
+{"n": "茅佳琪", "s": "女", "f": "茅立胜", "m": "范永阁", "sp": [], "info": "2005年生"}
+{"n": "杨礼玉", "s": "女", "f": "杨国珍", "m": "冯乔淑", "sp": ["颜联文"], "info": "1940 2016"}
+{"n": "颜联文", "s": "男", "sp": ["杨礼玉"], "info": "1937 2008"}
+{"n": "颜寒", "s": "男", "f": "颜联文", "m": "杨礼玉", "sp": [], "info": "1964 1993"}
+{"n": "颜新", "s": "女", "f": "颜联文", "m": "杨礼玉", "sp": ["康富贵"], "info": "1966年生"}
+{"n": "康富贵", "s": "男", "sp": ["颜新"], "info": "配颜新"}
+{"n": "康乃馨", "s": "女", "f": "康富贵", "m": "颜新", "sp": ["李文通"], "info": "1990年生"}
+{"n": "李文通", "s": "男", "sp": ["康乃馨"], "info": "配康乃馨"}
+{"n": "李雅涵", "s": "女", "f": "李文通", "m": "康乃馨", "sp": [], "info": "2017年生"}
+{"n": "李康晨", "s": "男", "f": "李文通", "m": "康乃馨", "sp": [], "info": "2024年生"}
+{"n": "颜琴", "s": "女", "f": "颜联文", "m": "杨礼玉", "sp": ["杨德全"], "info": "1973年生"}
+{"n": "杨德全", "s": "男", "sp": ["颜琴"], "info": "配颜琴"}
+{"n": "杨知秋", "s": "男", "f": "杨德全", "m": "颜琴", "sp": ["黄柢"], "info": "1995年生"}
+{"n": "黄柢", "s": "女", "sp": ["杨知秋"], "info": "配杨知秋"}
+{"n": "杨瑷宁", "s": "女", "f": "杨知秋", "m": "黄柢", "sp": [], "info": "2024年生"}
+{"n": "杨礼秀", "s": "女", "f": "杨国珍", "m": "冯乔淑", "sp": ["陈国荣"], "info": ""}
+{"n": "陈国荣", "s": "男", "sp": ["杨礼秀"], "info": "配杨礼秀"}
+{"n": "陈小波", "s": "男", "f": "陈国荣", "m": "杨礼秀", "sp": [], "info": ""}
+{"n": "陈小麗", "s": "女", "f": "陈国荣", "m": "杨礼秀", "sp": [], "info": ""}
+{"n": "杨礼宏", "s": "女", "f": "杨国珍", "m": "冯乔淑", "sp": ["朱兴全"], "info": "1942 2017"}
+{"n": "朱兴全", "s": "男", "sp": ["杨礼宏"], "info": "1945 2022，配杨礼宏"}
+{"n": "朱忠伟", "s": "女", "f": "朱兴全", "m": "杨礼宏", "sp": [], "info": "1968年生"}
+{"n": "赵世骁", "s": "男", "m": "朱忠伟", "sp": ["曾珍"], "info": "1998年生"}
+{"n": "曾珍", "s": "女", "sp": ["赵世骁"], "info": "配赵世骁"}
+{"n": "赵峥捷汐", "s": "男", "f": "赵世骁", "m": "曾珍", "sp": [], "info": "2022年生"}
+{"n": "朱忠林", "s": "男", "f": "朱兴全", "m": "杨礼宏", "sp": ["曾小丽"], "info": "1971年生"}
+{"n": "曾小丽", "s": "女", "sp": ["朱忠林"], "info": "配朱忠林"}
+{"n": "朱真臣", "s": "男", "f": "朱忠林", "m": "曾小丽", "sp": [], "info": "1999年生"}
+{"n": "朱忠强", "s": "男", "f": "朱兴全", "m": "杨礼宏", "sp": ["刘治愉"], "info": "1973年生"}
+{"n": "刘治愉", "s": "女", "sp": ["朱忠强"], "info": "配朱忠强"}
+{"n": "朱俐儒", "s": "女", "f": "朱忠强", "m": "刘治愉", "sp": [], "info": "2000年生"}
+{"n": "杨礼娅", "s": "女", "f": "杨国珍", "m": "冯乔淑", "sp": ["陈光昌"], "info": "1946 2021"}
+{"n": "陈光昌", "s": "男", "sp": ["杨礼娅"], "info": "配杨礼娅"}
+{"n": "杨开志", "s": "男", "f": "陈光昌", "m": "杨礼娅", "sp": ["尹秋红"], "info": "1981年生"}
+{"n": "尹秋红", "s": "女", "sp": ["杨开志"], "info": "配杨开志"}
+{"n": "杨习之", "s": "男", "f": "杨开志", "m": "尹秋红", "sp": [], "info": "2008年生"}
+{"n": "沈父", "s": "男", "sp": ["沈母"], "info": "沈氏、沈明山之父，冯宗德外曾祖父"}
+{"n": "沈母", "s": "女", "sp": ["沈父"], "info": "沈氏、沈明山之母，冯宗德外曾祖母"}
+{"n": "沈明山", "s": "男", "f": "沈父", "m": "沈母", "sp": [], "info": "沈氏之兄，冯乔福之舅，沈兴华之父"}
+{"n": "沈兴华", "s": "男", "f": "沈明山", "m": " ", "sp": [], "info": "沈明山之子，冯乔福之表兄弟，冯宗德之表叔"}
+{"n": "何祖", "s": "男", "sp": ["何祖母"], "info": ""}
+{"n": "何祖母", "s": "女", "sp": ["何祖"], "info": ""}
+{"n": "何父", "s": "男", "f": "何祖", "m": "何祖母", "sp": ["何父配"], "info": ""}
+{"n": "何父配", "s": "女", "sp": ["何父"], "info": ""}
+{"n": "三哥父", "s": "男", "f": "何祖", "m": "何祖母", "sp": ["三哥父配"], "info": ""}
+{"n": "三哥父配", "s": "女", "sp": ["三哥父"], "info": ""}
+{"n": "何泽民", "s": "男", "f": "何祖", "m": "何祖母", "sp": [], "info": ""}
+{"n": "何宗涓", "s": "男", "f": "三哥父", "m": "三哥父配", "sp": ["李少容"], "info": ""}
+{"n": "李少容", "s": "女", "sp": ["何宗涓"], "info": ""}
+{"n": "何涛", "s": "男", "f": "何宗涓", "m": "李少容", "sp": ["刘超英"], "info": ""}
+{"n": "刘超英", "s": "女", "sp": ["何涛"], "info": ""}
+{"n": "何浏", "s": "男", "f": "何涛", "m": "刘超英", "sp": [], "info": ""}
+{"n": "何勇", "s": "男", "f": "何宗涓", "m": "李少容", "sp": ["徐燕"], "info": ""}
+{"n": "徐燕", "s": "女", "sp": ["何勇"], "info": ""}
+{"n": "徐可仁", "s": "男", "f": "何勇", "m": "徐燕", "sp": [], "info": ""}
+{"n": "李克兰", "s": "男", "f": "李道源", "m": "刘雅仪", "sp": [], "info": "1944 "}
+{"n": "李兰荣", "s": "女", "f": "李道源", "m": "刘雅仪", "sp": [], "info": "1946 "}
+{"n": "李冬五", "s": "男", "f": "李道源", "m": "刘雅仪", "sp": [], "info": "1947 "}
+{"n": "李小胖", "s": "男", "f": "李道源", "m": "刘雅仪", "sp": [], "info": "1948 "}
+{"n": "李道源", "s": "男", "f": "李道源父", "m": "姨婆", "sp": ["刘雅仪"], "info": ""}
+{"n": "李维嘉", "s": "男", "f": "李道源父", "m": "姨婆", "sp": ["徐芳静"], "info": ""}
+{"n": "姨婆", "s": "女", "f": "外婆父", "m": "外婆母", "sp": ["李道源父"], "info": ""}
+{"n": "外婆", "s": "女", "f": "外婆父", "m": "外婆母", "sp": ["舒次范"], "info": ""}
+{"n": "舒继成", "s": "女", "f": "舒次范", "m": "外婆", "sp": [], "info": ""}
+{"n": "舒芸芳", "s": "女", "f": "舒次范兄", "m": "", "sp": ["杨岁生"], "info": ""}
+{"n": "舒次范父", "s": "男", "sp": ["舒次范母"], "info": ""}
+{"n": "舒次范母", "s": "女", "sp": ["舒次范父"], "info": ""}
+{"n": "舒次范兄", "s": "男", "f": "舒次范父", "m": "舒次范母", "sp": [], "info": ""}
+{"n": "杨岁生", "s": "男", "sp": ["舒芸芳"], "info": ""}
+{"n": "杨蜀章", "s": "男", "f": "杨岁生", "m": "舒芸芳", "sp": [], "info": "1947 "}
+{"n": "杨蜀锦", "s": "男", "f": "杨岁生", "m": "舒芸芳", "sp": [], "info": "1947 "}
+{"n": "王静平", "s": "女", "f": "王文淦", "m": "郭英仙", "sp": ["王小玉"], "info": "王海帆之母"}
+{"n": "王文淦", "s": "男", "sp": ["郭英仙"], "info": "王海帆外公"}
+{"n": "郭英仙", "s": "女", "sp": ["王文淦"], "info": "王海帆外婆"}
+{"n": "王小玉", "s": "男", "f": "王新乃", "m": "叶坤", "sp": ["王静平"], "info": "王海帆之父"}
+{"n": "王新乃", "s": "男", "sp": ["叶坤"], "info": "王海帆爷爷"}
+{"n": "叶坤", "s": "女", "sp": ["王新乃"], "info": "王海帆奶奶"}
+{"n": "周琳", "s": "男", "sp": ["秦昌静"], "info": "生卒日："}
+{"n": "秦昌静", "s": "女", "sp": ["周琳"], "info": "生卒日："}
+{"n": "周国栋", "s": "男", "f": "周琳", "m": "秦昌静", "sp": ["田素玲"], "info": "生卒日："}
+{"n": "田素玲", "s": "女", "sp": ["周国栋"], "info": "生卒日："}
+{"n": "周继贤", "s": "女", "f": "周琳", "m": "秦昌静", "sp": ["窦智"], "info": "生卒日："}
+{"n": "窦智", "s": "男", "sp": ["周继贤"], "info": "生卒日："}
+{"n": "周国柱", "s": "男", "f": "周琳", "m": "秦昌静", "sp": ["杨永秀"], "info": "生卒日："}
+{"n": "杨永秀", "s": "女", "sp": ["周国柱"], "info": "配周国柱"}
+{"n": "外婆父", "s": "男", "sp": ["外婆母"], "info": ""}
+{"n": "外婆母", "s": "女", "sp": ["外婆父"], "info": ""}
+{"n": "王静莉", "s": "女","f": "王文淦", "m": "郭英仙", "sp": ["邢玉明"], "info": "妹妹，1960年6月出生"}
+{"n": "邢玉明", "s": "男", "sp": ["王静莉"], "info": "妹夫，1955年11月出生"}
+{"n": "邢华", "s": "女", "f": "邢玉明", "m": "王静莉", "sp": ["杨熙"], "info": "外甥女，1982年8月出生"}
+{"n": "杨熙", "s": "男", "sp": ["邢华"], "info": "外甥女婿，1982年5月出生"}
+{"n": "杨瑷佳", "s": "女", "f": "杨熙", "m": "邢华", "sp": [], "info": "邢华与杨熙之女，2012年8月出生"}
+{"n": "王静荃", "s": "男","f": "王文淦", "m": "郭英仙", "sp": [], "info": "弟弟，1964年1月出生"}
+{"n": "王胜", "s": "男", "sp": [], "info": "外甥，1989年6月出生"}
+{"n": "张泽宇", "s": "男", "sp": ["郭英秀"], "info": "大姨父，1919年2月出生，2011年4月病故"}
+{"n": "郭英秀", "s": "女", "sp": ["张泽宇"], "info": "大姨，1921年5月出生，2011年8月病故"}
+{"n": "张庆新", "s": "男", "f": "张泽宇", "m": "郭英秀", "sp": [], "info": "表兄，1950年3月出生"}
+{"n": "张坚", "s": "男", "f": "张庆新", "sp": [], "info": "表外甥，1976年8月出生"}
+{"n": "张庆玲", "s": "女", "f": "张泽宇", "m": "郭英秀", "sp": [], "info": "表姐，1953年5月出生"}
+{"n": "张庆萍", "s": "女", "f": "张泽宇", "m": "郭英秀", "sp": [], "info": "表妹，1957年出生"}
+{"n": "张庆春", "s": "男", "f": "张泽宇", "m": "郭英秀", "sp": [], "info": "表弟，1960年4月出生"}
+{"n": "张庆梅", "s": "女", "f": "张泽宇", "m": "郭英秀", "sp": [], "info": "表妹，1968年3月出生"}
+{"n": "石英珠", "s": "男", "sp": ["郭英桂"], "info": "二姨夫，1925年出生，2001年病故"}
+{"n": "郭英桂", "s": "女", "sp": ["石英珠"], "info": "二姨，1926年出生，2015年病故"}
+{"n": "石临有", "s": "男", "f": "石英珠", "m": "郭英桂", "sp": [], "info": "表哥，1950年出生"}
+{"n": "石墩萍", "s": "女", "f": "石英珠", "m": "郭英桂", "sp": [], "info": "表姐，1953年出生"}
+{"n": "石润萍", "s": "女", "f": "石英珠", "m": "郭英桂", "sp": [], "info": "表姐，1955年出生"}
+{"n": "石翠萍", "s": "女", "f": "石英珠", "m": "郭英桂", "sp": [], "info": "表妹，1957年出生"}
+{"n": "石立成", "s": "男", "f": "石英珠", "m": "郭英桂", "sp": [], "info": "表弟，1964年出生"}
+{"n": "郭英俊", "s": "男", "sp": ["翼青"], "info": "大舅，1931年出生，2015年病故"}
+{"n": "翼青", "s": "女", "sp": ["郭英俊"], "info": "大舅妈，1937年出生"}
+{"n": "郭灵霞", "s": "女", "f": "郭英俊", "m": "翼青", "sp": [], "info": "表妹，1968年出生"}
+{"n": "郭英华", "s": "男", "sp": ["闫淑信"], "info": "二舅，1939年出生，2020年病故"}
+{"n": "闫淑信", "s": "女", "sp": ["郭英华"], "info": "二舅妈，1944年出生"}
+{"n": "郭艳霞", "s": "女", "f": "郭英华", "m": "闫淑信", "sp": [], "info": "表妹，1977年出生"}
+{"n": "王文源", "s": "男",  "f": "王新乃", "m": "叶坤","sp": [], "info": "大伯，1925年出生，1985年病故"}
+{"n": "王来成", "s": "男", "f": "王文源", "sp": [], "info": "堂哥，1949年出生，2009年病故"}
+{"n": "王文英", "s": "女",  "f": "王新乃", "m": "叶坤","sp": [], "info": "大姑，1933年出生，1999年病故"}
+{"n": "吴琴", "s": "女", "sp": [], "info": "堂妹，1958年出生"}
+{"n": "王文华", "s": "女", "f": "王新乃", "m": "叶坤", "sp": [], "info": "二姑，1935年出生，2005年病故"}
+{"n": "张春香", "s": "女", "m": "王文华", "sp": [], "info": "堂姐，1955年出生"}
+{"n": "张春生", "s": "男", "m": "王文华", "sp": [], "info": "堂弟，1960年出生"}
+{"n": "张宝生", "s": "男", "m": "王文华", "sp": [], "info": "堂弟，1964年出生"}
+{"n": "王文秀", "s": "女", "f": "王新乃", "m": "叶坤", "sp": [], "info": "三姑，1939年出生，2013年病故"}
+{"n": "梁林森", "s": "男", "m": "王文秀", "sp": [], "info": "堂弟，1960年出生"}`;
+
+// ===================== Person 类及关系构建 =====================
+class Person {
+    constructor(data) {
+        this.name = data.n;
+        this.sex = data.s;
+        this.father = data.f || "";
+        this.mother = data.m || "";
+        this.spouse = data.sp || [];
+        this.info = data.info || "";
+        this.birthYear = this._extractYear(this.info);
+        this.parents = [];
+        this.children = [];
+        this.fatherObj = null;
+        this.motherObj = null;
+    }
+    _extractYear(info) {
+        if (!info) return null;
+        const match = info.match(/(?<!\d)(1[0-9]{3}|20[0-9]{2})(?!\d)/);
+        return match ? parseInt(match[0]) : null;
+    }
+}
+function buildRelations(people) {
+    for (const p of Object.values(people)) {
+        if (p.father) {
+            const father = people[p.father];
+            if (father) {
+                p.fatherObj = father;
+                p.parents.push(father);
+                father.children.push(p);
+            }
+        }
+        if (p.mother) {
+            const mother = people[p.mother];
+            if (mother) {
+                p.motherObj = mother;
+                p.parents.push(mother);
+                mother.children.push(p);
+            }
+        }
+    }
+    for (const p of Object.values(people)) {
+        p.children.sort((a,b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
+    }
+    return people;
+}
+function parseJsonl(text) {
+    const lines = text.split(/\r?\n/);
+    const people = {};
+    for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+            const obj = JSON.parse(line);
+            const p = new Person(obj);
+            people[p.name] = p;
+        } catch(e) { console.warn("解析失败:", line, e); }
+    }
+    return buildRelations(people);
+}
+function bfsRelationships(startName, people) {
+    const start = people[startName];
+    if (!start) return {};
+    const visited = {};
+    const queue = [{ person: start, genGap: 0, pathPersons: [], pathOps: [] }];
+    while (queue.length) {
+        const { person: cur, genGap, pathPersons, pathOps } = queue.shift();
+        if (visited[cur.name]) continue;
+        visited[cur.name] = { gap: genGap, pathPersons: [...pathPersons], pathOps: [...pathOps], person: cur };
+        if (cur.fatherObj) {
+            queue.push({ person: cur.fatherObj, genGap: genGap+1, pathPersons: [...pathPersons, cur.fatherObj], pathOps: [...pathOps, 'f'] });
+        }
+        if (cur.motherObj) {
+            queue.push({ person: cur.motherObj, genGap: genGap+1, pathPersons: [...pathPersons, cur.motherObj], pathOps: [...pathOps, 'm'] });
+        }
+        for (const child of cur.children) {
+            queue.push({ person: child, genGap: genGap-1, pathPersons: [...pathPersons, child], pathOps: [...pathOps, 'ch'] });
+        }
+        for (const spName of cur.spouse) {
+            const spouse = people[spName];
+            if (spouse) {
+                queue.push({ person: spouse, genGap: genGap, pathPersons: [...pathPersons, spouse], pathOps: [...pathOps, 'sp'] });
+            }
+        }
+    }
+    return visited;
+}
+function compareBirth(a, b) {
+    if (a.birthYear !== null && b.birthYear !== null) {
+        return b.birthYear - a.birthYear;
+    }
+    return 0;
+}
+const baseSpouseMap = new Map();
+const baseSpouseMapData = [
+    ["兄","男","嫂"], ["弟","男","弟媳"], ["姐","女","姐夫"], ["妹","女","妹夫"],
+    ["伯父","男","伯母"], ["叔父","男","叔母"], ["姑母","女","姑父"],
+    ["舅父","男","舅母"], ["姨母","女","姨父"],
+    ["祖父","男","祖母"], ["祖母","女","祖父"],
+    ["外祖父","男","外祖母"], ["外祖母","女","外祖父"],
+    ["曾祖父","男","曾祖母"], ["曾祖母","女","曾祖父"],
+    ["外曾祖父","男","外曾祖母"], ["外曾祖母","女","外曾祖父"],
+    ["高祖父","男","高祖母"], ["高祖母","女","高祖父"],
+    ["外高祖父","男","外高祖母"], ["外高祖母","女","外高祖父"],
+    ["天祖父","男","天祖母"], ["天祖母","女","天祖父"],
+    ["烈祖","男","烈祖母"], ["烈祖母","女","烈祖"],
+    ["太祖","男","太祖母"], ["太祖母","女","太祖"],
+    ["远祖","男","远祖母"], ["远祖母","女","远祖"],
+    ["鼻祖","男","鼻祖母"], ["鼻祖母","女","鼻祖"],
+    ["儿子","男","儿媳"], ["女儿","女","女婿"],
+    ["孙子","男","孙媳"], ["孙女","女","孙女婿"],
+    ["曾孙","男","曾孙媳"], ["曾孙女","女","曾孙女婿"],
+    ["玄孙","男","玄孙媳"], ["玄孙女","女","玄孙女婿"],
+    ["来孙","男","来孙媳"], ["来孙女","女","来孙女婿"],
+    ["晜孙","男","晜孙媳"], ["晜孙女","女","晜孙女婿"],
+    ["仍孙","男","仍孙媳"], ["仍孙女","女","仍孙女婿"],
+    ["云孙","男","云孙媳"], ["云孙女","女","云孙女婿"],
+    ["耳孙","男","耳孙媳"], ["耳孙女","女","耳孙女婿"],
+    ["侄子","男","侄媳"], ["侄女","女","侄女婿"],
+    ["外甥","男","外甥媳"], ["外甥女","女","外甥女婿"],
+    ["亲家公","男","亲家母"], ["亲家母","女","亲家公"],
+    ["内兄","男","内嫂"], ["内弟","男","内弟媳"], ["内姐","女","内姐夫"], ["内妹","女","内妹夫"],
+    ["侄孙","男","侄孙媳"], ["侄孙女","女","侄孙女婿"],
+    ["外甥孙","男","外甥孙媳"], ["外甥孙女","女","外甥孙女婿"],
+    ["侄曾孙","男","侄曾孙媳"], ["侄曾孙女","女","侄曾孙女婿"],
+    ["外甥曾孙","男","外甥曾孙媳"], ["外甥曾孙女","女","外甥曾孙女婿"],
+    ["兄弟","男","兄弟的配偶"], ["姐妹","女","姐妹的配偶"],
+    ["伯叔","男","伯叔的配偶"], ["姑","女","姑的配偶"],
+    ["舅","男","舅的配偶"], ["姨","女","姨的配偶"]
+];
+for (const [rel, sex, sp] of baseSpouseMapData) {
+    baseSpouseMap.set([rel, sex].join('|'), sp);
+}
+function getSpouseWithPrefix(rel, baseSex) {
+    const prefixes = ["堂","姑表","舅表","姨表","姻","内","亲家","外","岳","外岳","夫家","妻家","再从","族","远"];
+    for (const prefix of prefixes) {
+        if (rel.startsWith(prefix)) {
+            const base = rel.slice(prefix.length);
+            if ((base === "兄弟" || base === "兄" || base === "弟") && baseSex === '男') return prefix + "嫂";
+            if ((base === "姐妹" || base === "姐" || base === "妹") && baseSex === '女') return prefix + base + "夫";
+            const key = [base, baseSex].join('|');
+            if (baseSpouseMap.has(key)) return prefix + baseSpouseMap.get(key);
+            const sub = getSpouseWithPrefix(base, baseSex);
+            if (sub) return prefix + sub;
+        }
+    }
+    return null;
+}
+function getRelationship(start, target, pathPersons, ops, people) {
+    const upSteps = ops.filter(op => op === 'f' || op === 'm').length;
+    const downSteps = ops.filter(op => op === 'ch').length;
+    const spCount = ops.filter(op => op === 'sp').length;
+
+    if (ops.length === 1 && ops[0] === 'sp') return "配偶";
+    if (ops.length === 2 && ops[0] === 'ch' && ops[1] === 'sp') {
+        const child = pathPersons[0] || null;
+        if (child) {
+            if (child.sex === '男') return target.sex === '女' ? "儿媳" : "女婿";
+            else return target.sex === '男' ? "女婿" : "儿媳";
+        }
+        return target.sex === '女' ? "儿媳" : "女婿";
+    }
+    if (ops.length >= 3 && ops[0]==='ch' && ops[1]==='sp' && (ops[2]==='f' || ops[2]==='m')) {
+        const baseOps = ops.slice(2);
+        const basePersons = pathPersons.slice(2);
+        const baseRel = getRelationship(start, target, basePersons, baseOps, people);
+        return "亲家" + baseRel;
+    }
+    if (ops.length && ops[0] === 'sp' && spCount === 1 && downSteps === 0) {
+        const spouse = pathPersons[0] || null;
+        if (!spouse) return "未知";
+        const baseOps = ops.slice(1);
+        const basePersons = pathPersons.slice(1);
+        const relFromSpouse = getRelationship(spouse, target, basePersons, baseOps, people);
+        if (start.sex === '男') {
+            if (spouse.sex === '女') {
+                if (baseOps.length && baseOps[0] === 'm') return "外岳" + relFromSpouse;
+                else return "岳" + relFromSpouse;
+            } else return "岳" + relFromSpouse;
+        } else {
+            if (spouse.sex === '男') {
+                if (relFromSpouse.includes("父")) return relFromSpouse.replace("父","公");
+                if (relFromSpouse.includes("母")) return relFromSpouse.replace("母","婆");
+                if (relFromSpouse.includes("祖父")) return relFromSpouse.replace("祖父","祖公");
+                if (relFromSpouse.includes("祖母")) return relFromSpouse.replace("祖母","祖婆");
+                return "夫家" + relFromSpouse;
+            } else return "妻家" + relFromSpouse;
+        }
+    }
+    if (ops.length && ops[0] === 'sp' && upSteps === 1 && downSteps === 1) {
+        const spouse = pathPersons[0] || null;
+        if (spouse) {
+            const diff = compareBirth(spouse, target);
+            if (diff < 0) return target.sex === '男' ? "姻兄" : "姻姐";
+            else if (diff > 0) return target.sex === '男' ? "姻弟" : "姻妹";
+            else return target.sex === '男' ? "姻兄弟" : "姻姐妹";
+        }
+        return target.sex === '男' ? "姻兄弟" : "姻姐妹";
+    }
+    if (ops.length && ops[0] === 'sp' && spCount === 1) {
+        const baseOps = ops.slice(1);
+        const basePersons = pathPersons.slice(1);
+        const baseRel = getRelationship(start, target, basePersons, baseOps, people);
+        return "姻" + baseRel;
+    }
+    if (downSteps === 0) {
+        const up = upSteps;
+        const allF = ops.every(op => op === 'f');
+        if (up === 1) return target.sex === '男' ? "父亲" : "母亲";
+        if (up === 2) return target.sex === '男' ? (allF ? "祖父" : "外祖父") : (allF ? "祖母" : "外祖母");
+        if (up === 3) return target.sex === '男' ? (allF ? "曾祖父" : "外曾祖父") : (allF ? "曾祖母" : "外曾祖母");
+        if (up === 4) return target.sex === '男' ? (allF ? "高祖父" : "外高祖父") : (allF ? "高祖母" : "外高祖母");
+        if (up === 5) return target.sex === '男' ? (allF ? "天祖父" : "外天祖父") : (allF ? "天祖母" : "外天祖母");
+        if (up === 6) return target.sex === '男' ? "烈祖" : "烈祖母";
+        if (up === 7) return target.sex === '男' ? "太祖" : "太祖母";
+        if (up === 8) return target.sex === '男' ? "远祖" : "远祖母";
+        if (up === 9) return target.sex === '男' ? "鼻祖" : "鼻祖母";
+        return (allF ? "远祖" : "外远祖") + (target.sex === '男' ? "" : "母");
+    }
+    if (upSteps === 0) {
+        const down = downSteps;
+        const mapping = {
+            1: ["儿子","女儿"], 2: ["孙子","孙女"], 3: ["曾孙","曾孙女"],
+            4: ["玄孙","玄孙女"], 5: ["来孙","来孙女"], 6: ["晜孙","晜孙女"],
+            7: ["仍孙","仍孙女"], 8: ["云孙","云孙女"], 9: ["耳孙","耳孙女"]
+        };
+        if (mapping[down]) return target.sex === '男' ? mapping[down][0] : mapping[down][1];
+        return target.sex === '男' ? "远孙" : "远孙女";
+    }
+    if (upSteps === 2 && downSteps === 1) {
+        if (ops.length===3 && ops[0]==='f' && ops[1]==='f' && ops[2]==='ch') {
+            const father = pathPersons[0] || null;
+            if (father) {
+                const diff = compareBirth(father, target);
+                if (target.sex === '男') {
+                    if (diff < 0) return "伯父";
+                    else if (diff > 0) return "叔父";
+                    else return "伯叔";
+                } else return "姑母";
+            } else return target.sex === '男' ? "伯叔" : "姑母";
+        }
+        if (ops.length===3 && (ops[0]==='m'||ops[0]==='f') && ops[1]==='m' && ops[2]==='ch') {
+            return target.sex === '男' ? "舅父" : "姨母";
+        }
+    }
+    if (upSteps === 1 && downSteps === 2) {
+        const keyPerson = pathPersons[pathPersons.length-2] || null;
+        const siblingSex = keyPerson ? keyPerson.sex : null;
+        if (siblingSex === '男') return target.sex === '男' ? "侄子" : "侄女";
+        else if (siblingSex === '女') return target.sex === '男' ? "外甥" : "外甥女";
+        else {
+            if (ops[0] === 'f') return target.sex === '男' ? "侄子" : "侄女";
+            else return target.sex === '男' ? "外甥" : "外甥女";
+        }
+    }
+    if (ops.length && ops[ops.length-1] === 'sp') {
+        const baseOps = ops.slice(0, -1);
+        const basePersons = pathPersons.slice(0, -1);
+        const basePerson = pathPersons[pathPersons.length-2] || null;
+        if (!basePerson) return "未知";
+        const baseRel = getRelationship(start, basePerson, basePersons, baseOps, people);
+        const key = [baseRel, basePerson.sex].join('|');
+        if (baseSpouseMap.has(key)) return baseSpouseMap.get(key);
+        const spouseWithPrefix = getSpouseWithPrefix(baseRel, basePerson.sex);
+        if (spouseWithPrefix) return spouseWithPrefix;
+        const diff = compareBirth(start, basePerson);
+        if ((baseRel === "兄弟" || baseRel === "弟" || baseRel === "兄") && basePerson.sex === '男') {
+            const prefix = baseRel.length>2 ? baseRel.slice(0,-2) : "";
+            if (diff < 0) return "姻" + prefix + "嫂";
+            else if (diff > 0) return "姻" + prefix + "弟媳";
+            else return "姻" + prefix + "兄弟媳";
+        }
+        if ((baseRel === "姐妹" || baseRel === "姐" || baseRel === "妹") && basePerson.sex === '女') {
+            const prefix = baseRel.length>2 ? baseRel.slice(0,-2) : "";
+            if (diff < 0) return "姻" + prefix + "姐夫";
+            else if (diff > 0) return "姻" + prefix + "妹夫";
+            else return "姻" + prefix + "姐妹夫";
+        }
+        if (baseRel.endsWith("父")) return "姻" + baseRel.slice(0,-1) + "母";
+        if (baseRel.endsWith("母")) return "姻" + baseRel.slice(0,-1) + "父";
+        if (baseRel.endsWith("兄")) return "姻" + baseRel.slice(0,-1) + "嫂";
+        if (baseRel.endsWith("弟")) return "姻" + baseRel.slice(0,-1) + "媳";
+        if (baseRel.endsWith("姐")) return "姻" + baseRel.slice(0,-1) + "夫";
+        if (baseRel.endsWith("妹")) return "姻" + baseRel.slice(0,-1) + "夫";
+        if (baseRel.endsWith("子")) return "姻" + baseRel.slice(0,-1) + "媳";
+        if (baseRel.endsWith("女")) {
+            if (baseRel.includes("侄")) return "侄女婿";
+            if (baseRel.includes("外甥")) return "外甥女婿";
+            return baseRel + "婿";
+        }
+        return "姻" + baseRel + "的配偶";
+    }
+    if (spCount >= 2) {
+        const baseOps = ops.filter(op => op !== 'sp');
+        const basePersons = pathPersons.filter((_,idx) => ops[idx] !== 'sp');
+        const baseRel = getRelationship(start, target, basePersons, baseOps, people);
+        return "姻亲的" + baseRel;
+    }
+    if (upSteps === downSteps) {
+        const k = upSteps;
+        if (k === 1) {
+            const diff = compareBirth(start, target);
+            if (target.sex === '男') return diff < 0 ? "兄" : (diff > 0 ? "弟" : "兄弟");
+            else return diff < 0 ? "姐" : (diff > 0 ? "妹" : "姐妹");
+        } else {
+            let prefix = "";
+            if (k > 1 && pathPersons.length > k) {
+                const connector = pathPersons[k];
+                const first = ops[0];
+                if (first === 'f') prefix = (connector.sex === '女') ? "姑表" : "堂";
+                else if (first === 'm') prefix = (connector.sex === '男') ? "舅表" : "姨表";
+            }
+            const diff = compareBirth(start, target);
+            let suffix = "";
+            if (target.sex === '男') suffix = diff < 0 ? "兄" : (diff > 0 ? "弟" : "兄弟");
+            else suffix = diff < 0 ? "姐" : (diff > 0 ? "妹" : "姐妹");
+            return prefix + suffix;
+        }
+    }
+    if (!ops.includes('sp')) {
+        const diff = upSteps - downSteps;
+        const level = Math.min(upSteps, downSteps);
+        let prefix = "";
+        if (level >= 1 && pathPersons.length > level) {
+            const connector = pathPersons[level];
+            const first = ops[0];
+            if (first === 'f') prefix = (connector.sex === '女') ? "姑表" : "堂";
+            else if (first === 'm') prefix = (connector.sex === '男') ? "舅表" : "姨表";
+        }
+        let mod = "";
+        if (level === 1) mod = "";
+        else if (level === 2) mod = "堂";
+        else if (level === 3) mod = "再从";
+        else if (level === 4) mod = "族";
+        else mod = "远";
+        if (prefix) mod = "";
+        if (diff > 0) {
+            const absDiff = diff;
+            let base = "";
+            if (absDiff === 1) base = (ops[0]==='f') ? (target.sex==='男'?"伯叔":"姑") : (target.sex==='男'?"舅":"姨");
+            else if (absDiff === 2) base = target.sex==='男'?"祖父":"祖母";
+            else if (absDiff === 3) base = target.sex==='男'?"曾祖父":"曾祖母";
+            else if (absDiff === 4) base = target.sex==='男'?"高祖父":"高祖母";
+            else base = `${absDiff}辈长辈` + (target.sex==='男'?"男":"女");
+            return prefix + mod + base;
+        } else if (diff < 0) {
+            const absDiff = -diff;
+            const keyPerson = pathPersons[pathPersons.length-2] || null;
+            const siblingSex = keyPerson ? keyPerson.sex : (ops[0]==='f'?'男':'女');
+            let base = "";
+            if (absDiff === 1) base = (siblingSex==='男'?"侄":"甥") + (target.sex==='男'?"子":"女");
+            else if (absDiff === 2) base = (siblingSex==='男'?"侄孙":"甥孙") + (target.sex==='男'?"":"女");
+            else if (absDiff === 3) base = (siblingSex==='男'?"侄曾孙":"甥曾孙") + (target.sex==='男'?"":"女");
+            else if (absDiff === 4) base = (siblingSex==='男'?"侄玄孙":"甥玄孙") + (target.sex==='男'?"":"女");
+            else base = `${absDiff}辈晚辈` + (target.sex==='男'?"男":"女");
+            return prefix + mod + base;
+        } else {
+            const base = target.sex==='男'?"兄弟":"姐妹";
+            return prefix + mod + base;
+        }
+    }
+    if (spCount === 1) {
+        const baseOps = ops.filter(op => op !== 'sp');
+        const basePersons = pathPersons.filter((_,idx) => ops[idx] !== 'sp');
+        const baseRel = getRelationship(start, target, basePersons, baseOps, people);
+        return "姻" + baseRel;
+    }
+    return "未知关系";
+}
+function printRelationshipsWithClick(startName, relations, people) {
+    const byGap = new Map();
+    for (const [name, info] of Object.entries(relations)) {
+        if (name === startName) continue;
+        const gap = info.gap;
+        if (!byGap.has(gap)) byGap.set(gap, []);
+        byGap.get(gap).push({ name, pathPersons: info.pathPersons, pathOps: info.pathOps, person: info.person });
+    }
+    const sortedGaps = Array.from(byGap.keys()).sort((a,b) => b - a);
+    const printedSpousesGlobal = new Set();
+    const lines = [];
+    const makeClickable = (name) => `<span class="clickable-name" data-name="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+    for (const gap of sortedGaps) {
+        const items = byGap.get(gap);
+        if (gap > 0) lines.push(`\n上${gap}辈 ————————————————————————————`);
+        else if (gap === 0) lines.push(`\n同辈 ————————————————————————————`);
+        else lines.push(`\n下${-gap}辈 ————————————————————————————`);
+        const groups = { f: [], m: [], sp: [], ch: [] };
+        for (const item of items) {
+            const first = item.pathOps[0] || '';
+            if (groups[first]) groups[first].push(item);
+            else groups['f'].push(item);
+        }
+        const sectionOrder = ['f','m','sp','ch'];
+        const sectionTitle = { f:'【父系亲属】', m:'【母系亲属】', sp:'【配偶亲属】', ch:'【子女亲属】' };
+        for (const first of sectionOrder) {
+            if (!groups[first] || groups[first].length===0) continue;
+            lines.push(sectionTitle[first]);
+            if (Math.abs(gap) >= 5) {
+                for (const item of groups[first]) {
+                    const obj = item.person;
+                    if (printedSpousesGlobal.has(obj.name)) continue;
+                    const rel = getRelationship(people[startName], obj, item.pathPersons, item.pathOps, people);
+                    let line = `  ${rel} ${makeClickable(obj.name)}`;
+                    if (obj.spouse && obj.spouse.length) {
+                        const spouseObjs = obj.spouse.map(sn => people[sn]).filter(s => s);
+                        if (spouseObjs.length) line += ` 配 ${spouseObjs.map(sp => makeClickable(sp.name)).join('、')}`;
+                    }
+                    lines.push(line);
+                }
+                continue;
+            }
+            const bloodNames = new Set();
+            const bloodSpouses = new Set();
+            if (first === 'f' || first === 'm' || first === 'ch') {
+                for (const item of groups[first]) {
+                    if (!item.pathOps.includes('sp')) bloodNames.add(item.person.name);
+                }
+                for (const item of groups[first]) {
+                    if (bloodNames.has(item.person.name)) {
+                        for (const sname of item.person.spouse) {
+                            if (item.person.sex === '女') continue;
+                            bloodSpouses.add(sname);
+                        }
+                    }
+                }
+            }
+            const families = new Map();
+            for (const item of groups[first]) {
+                if ((first==='f'||first==='m'||first==='ch') && (item.pathOps.includes('sp') || bloodSpouses.has(item.person.name))) continue;
+                const fName = item.person.father || "?";
+                const mName = item.person.mother || "?";
+                const key = `${fName}|${mName}`;
+                if (!families.has(key)) families.set(key, []);
+                families.get(key).push(item);
+            }
+            for (const [famKey, members] of families.entries()) {
+                members.sort((a,b) => (a.person.birthYear ?? 9999) - (b.person.birthYear ?? 9999));
+                const [fName, mName] = famKey.split('|');
+                if (fName !== "?" || mName !== "?") lines.push(`  家庭 ${makeClickable(fName)} & ${makeClickable(mName)}`);
+                else lines.push(`  家庭 ？ & ？`);
+                for (const item of members) {
+                    const obj = item.person;
+                    if (printedSpousesGlobal.has(obj.name)) continue;
+                    const rel = getRelationship(people[startName], obj, item.pathPersons, item.pathOps, people);
+                    let line = `    ${rel} ${makeClickable(obj.name)}`;
+                    if (obj.spouse && obj.spouse.length) {
+                        const spouseObjs = obj.spouse.map(sn => people[sn]).filter(s => s);
+                        if (spouseObjs.length) line += ` 配 ${spouseObjs.map(sp => makeClickable(sp.name)).join('、')}`;
+                    }
+                    lines.push(line);
+                    for (const spName of obj.spouse) {
+                        const spouseObj = people[spName];
+                        if (!spouseObj || printedSpousesGlobal.has(spouseObj.name)) continue;
+                        if (!spouseObj.fatherObj && !spouseObj.motherObj) {
+                            const spousePathPersons = [...item.pathPersons, spouseObj];
+                            const spouseOps = [...item.pathOps, 'sp'];
+                            const spouseRel = getRelationship(people[startName], spouseObj, spousePathPersons, spouseOps, people);
+                            lines.push(`    ${spouseRel} ${makeClickable(spouseObj.name)}`);
+                            printedSpousesGlobal.add(spouseObj.name);
+                        }
+                    }
+                }
+                lines.push("");
+            }
+        }
+    }
+    return lines.join('\n');
+}
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+}
+
+// ===================== 核心：一键定位并授权「资料」文件夹 =====================
+let folderHandle = null;
+const folderStatusSpan = document.getElementById('folderStatus');
+const outputPre = document.getElementById('output');
+const modal = document.getElementById('mediaModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalBody = document.getElementById('modalBody');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const selectFolderBtn = document.getElementById('selectFolderBtn');
+
+function closeModal() { modal.classList.remove('active'); }
+function openModal() { modal.classList.add('active'); }
+closeModalBtn.onclick = closeModal;
+modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+// 核心功能：自动定位到网页所在目录，并提示用户选中「资料」文件夹
+selectFolderBtn.onclick = async () => {
+    try {
+        // 显示提示，告知用户接下来会打开文件选择器
+        folderStatusSpan.innerHTML = '📂 请在弹窗中找到当前网页所在的文件夹，然后点击其中的「资料」文件夹 → 点击“允许”';
+        folderStatusSpan.style.color = '#b85c00';
+        
+        // 使用 showDirectoryPicker，浏览器会自动从最近使用的目录开始
+        // 用户只需点击同目录下的「资料」文件夹即可
+        const rootHandle = await window.showDirectoryPicker();
+        
+        // 检查选中的文件夹本身是否是「资料」
+        if (rootHandle.name === '资料') {
+            folderHandle = rootHandle;
+            folderStatusSpan.innerHTML = `✅ 已成功授权「资料」文件夹！现在可以点击姓名查看资料了。`;
+            folderStatusSpan.style.color = '#2c5a2c';
+        } else {
+            // 否则尝试在选中的文件夹内查找「资料」子文件夹
+            let found = false;
+            for await (const entry of rootHandle.values()) {
+                if (entry.kind === 'directory' && entry.name === '资料') {
+                    folderHandle = entry;
+                    folderStatusSpan.innerHTML = `✅ 已成功定位到「${rootHandle.name}/资料」文件夹！现在可以点击姓名查看资料了。`;
+                    folderStatusSpan.style.color = '#2c5a2c';
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                folderStatusSpan.innerHTML = '❌ 所选文件夹中没有找到「资料」子文件夹。请确保网页同级目录下有一个名为「资料」的文件夹，然后重新点击按钮授权。';
+                folderStatusSpan.style.color = '#c00';
+                folderHandle = null;
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        if (err.name === 'AbortError') {
+            folderStatusSpan.innerHTML = '⚠️ 未选择文件夹，点击按钮后可重新授权';
+        } else {
+            folderStatusSpan.innerHTML = '❌ 授权失败，请重试';
+        }
+        folderStatusSpan.style.color = '#c00';
+    }
+};
+
+async function previewFileInModal(file, fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+    const url = URL.createObjectURL(file);
+    let previewHtml = '';
+    if (['jpg','jpeg','png','gif','webp'].includes(ext)) {
+        previewHtml = `<div style="text-align:center;"><img src="${url}" class="preview-image" style="max-height:280px;"><br><br><a class="download-link-modal" href="${url}" download="${escapeHtml(fileName)}">⬇️ 下载图片</a></div>`;
+    } else if (['mp4','webm','mov','avi','mkv'].includes(ext)) {
+        previewHtml = `<div style="text-align:center;"><p style="margin:8px 0 12px; font-weight:bold;">🎬 ${escapeHtml(fileName)}</p><video id="modalVideo" controls style="width:100%; max-height:360px; border-radius:12px; background:#000;"><source src="${url}" type="video/${ext === 'mov' ? 'quicktime' : ext === 'mkv' ? 'x-matroska' : ext}">您的浏览器不支持播放此视频</video><br><br><a class="download-link-modal" href="${url}" download="${escapeHtml(fileName)}">⬇️ 下载视频</a></div>`;
+    } else if (['mp3','wav','ogg','m4a','amr','flac'].includes(ext)) {
+        previewHtml = `<div style="padding:20px; background:#f8f9fa; border-radius:12px; text-align:center;"><p style="margin:8px 0 12px; font-weight:bold;">🎵 ${escapeHtml(fileName)}</p><audio id="modalAudio" controls style="width:100%;"><source src="${url}" type="audio/${ext}">您的浏览器不支持播放此音频<br><br><a class="download-link-modal" href="${url}" download="${escapeHtml(fileName)}">⬇️ 下载音频</a></div>`;
+    } else if (['txt','md','text','log','json','csv'].includes(ext)) {
+        try {
+            const text = await file.text();
+            previewHtml = `<div class="preview-text">${escapeHtml(text)}</div><a class="download-link-modal" href="${url}" download="${escapeHtml(fileName)}">⬇️ 下载文本</a>`;
+        } catch(e) {
+            previewHtml = `<div class="empty-media-modal">读取文本失败</div>`;
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        return previewHtml;
+    } else {
+        previewHtml = `<div class="empty-media-modal">⚠️ 暂不支持预览此格式<br><br><a class="download-link-modal" href="${url}" download="${escapeHtml(fileName)}">⬇️ 下载文件</a></div>`;
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        return previewHtml;
+    }
+    setTimeout(() => { URL.revokeObjectURL(url); }, 60000);
+    return previewHtml;
+}
+
+async function showPersonMediaInModal(personName) {
+    if (!folderHandle) {
+        modalBody.innerHTML = `<div class="empty-media-modal">⚠️ 请先点击「一键定位资料夹」按钮，授权与网页同目录的「资料」文件夹</div>`;
+        openModal();
+        return;
+    }
+    modalTitle.innerHTML = `📁 ${escapeHtml(personName)} 的资料`;
+    modalBody.innerHTML = `<div class="empty-media-modal">⏳ 正在读取 ${escapeHtml(personName)} 文件夹...</div>`;
+    openModal();
+    try {
+        const personDir = await folderHandle.getDirectoryHandle(personName);
+        const files = [];
+        for await (const entry of personDir.values()) {
+            if (entry.kind === 'file') {
+                const file = await entry.getFile();
+                files.push({ name: entry.name, file });
+            }
+        }
+        if (files.length === 0) {
+            modalBody.innerHTML = `<div class="empty-media-modal">📭 该人物暂无资料文件</div>`;
+            return;
+        }
+        files.sort((a,b) => a.name.localeCompare(b.name));
+        let fileListHtml = `<div class="file-list-modal">`;
+        for (const f of files) {
+            let icon = '📄';
+            const ext = f.name.split('.').pop().toLowerCase();
+            if (['jpg','jpeg','png','gif','webp'].includes(ext)) icon = '🖼️';
+            else if (['mp3','wav','ogg','m4a','amr'].includes(ext)) icon = '🎵';
+            else if (['mp4','webm','mov','avi'].includes(ext)) icon = '🎬';
+            else if (['txt','md','text','log'].includes(ext)) icon = '📃';
+            fileListHtml += `<div class="file-item-modal" data-filename="${escapeHtml(f.name)}"><span class="file-icon-modal">${icon}</span><span class="file-name-modal">${escapeHtml(f.name)}</span></div>`;
+        }
+        fileListHtml += `</div><div id="modalPreviewArea" class="media-preview-modal"><div class="empty-media-modal">点击上方文件预览</div></div>`;
+        modalBody.innerHTML = fileListHtml;
+        const previewArea = document.getElementById('modalPreviewArea');
+        document.querySelectorAll('.file-item-modal').forEach(el => {
+            const fname = el.getAttribute('data-filename');
+            const fileObj = files.find(f => f.name === fname);
+            if (fileObj) {
+                el.onclick = async () => {
+                    if (previewArea) previewArea.innerHTML = await previewFileInModal(fileObj.file, fileObj.name);
+                };
+            }
+        });
+        let best = files.find(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name)) || files.find(f => /\.(txt|md|text|log)$/i.test(f.name));
+        if (best && previewArea) {
+            previewArea.innerHTML = await previewFileInModal(best.file, best.name);
+        }
+    } catch (err) {
+        console.error(err);
+        modalBody.innerHTML = `<div class="empty-media-modal">❌ 找不到“${escapeHtml(personName)}”文件夹。请在「资料」文件夹下创建名为“${escapeHtml(personName)}”的子文件夹，并将该人物的资料文件放入其中。</div>`;
+    }
+}
+
+// ===================== 初始化 =====================
+const peopleData = parseJsonl(REAL_JSONL);
+
+function search() {
+    const startName = document.getElementById('startName').value.trim();
+    if (!startName) {
+        outputPre.innerHTML = '<pre>请输入姓名</pre>';
+        return;
+    }
+    if (!peopleData[startName]) {
+        outputPre.innerHTML = `<pre>❌ 错误：'${startName}' 不在家谱中。</pre>`;
+        return;
+    }
+    outputPre.innerHTML = '<pre>正在查询关系...</pre>';
+    setTimeout(() => {
+        const relations = bfsRelationships(startName, peopleData);
+        const outputText = printRelationshipsWithClick(startName, relations, peopleData);
+        outputPre.innerHTML = `<pre>========== 从 ${escapeHtml(startName)} 出发的家族关系树 ==========\n${outputText}</pre>`;
+    }, 50);
+}
+
+document.getElementById('searchBtn').addEventListener('click', search);
+document.getElementById('startName').addEventListener('keypress', (e) => { if (e.key === 'Enter') search(); });
+document.getElementById('output').addEventListener('click', async (e) => {
+    let target = e.target;
+    if (target.classList && target.classList.contains('clickable-name')) {
+        const name = target.getAttribute('data-name');
+        if (name && peopleData[name]) {
+            await showPersonMediaInModal(name);
+        }
+    }
+});
+
+const toTopBtn = document.getElementById('toTopBtn');
+window.addEventListener('scroll', () => { toTopBtn.style.display = window.scrollY > 300 ? 'flex' : 'none'; });
+toTopBtn.addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+
+// 初始化显示
+outputPre.innerHTML = '<pre>✅ 家谱数据已加载！共 ' + Object.keys(peopleData).length + ' 位人物。<br><br>📁 使用步骤：<br>1. 点击上方「一键定位资料夹」按钮<br>2. 在弹窗中找到当前网页所在的文件夹<br>3. 点击其中的「资料」文件夹 → 点击“允许”<br>4. 授权成功后即可输入姓名查询关系，点击任意姓名查看多媒体资料</pre>';
+document.getElementById('startName').value = '冯宗德';
+</script>
+</body>
+</html>
