@@ -1,0 +1,80 @@
+name: 飞书数据同步
+
+on:
+  # 1. 手动触发（调试时用这个）
+  workflow_dispatch:
+    inputs:
+      debug_mode:
+        description: '调试模式'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      test_name:
+        description: '测试特定姓名（留空则全部）'
+        required: false
+        type: string
+        default: ''
+
+  # 2. 飞书 Webhook 触发
+  repository_dispatch:
+    types: [feishu-new-record]
+
+  # 3. 定时触发
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: |
+          pip install requests
+
+      - name: 执行同步
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_APP_TOKEN: ${{ secrets.FEISHU_APP_TOKEN }}
+          FEISHU_TABLE_ID: ${{ secrets.FEISHU_TABLE_ID }}
+          DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
+          TEST_NAME: ${{ github.event.inputs.test_name || '' }}
+        run: |
+          python sync_feishu.py
+
+      - name: 提交变更
+        if: github.event.inputs.debug_mode != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --staged --quiet; then
+            echo "没有新资料需要提交"
+          else
+            git commit -m "🔄 自动同步飞书数据 $(date '+%Y-%m-%d %H:%M:%S')"
+            git push
+          fi
+      
+      - name: 调试信息输出
+        if: github.event.inputs.debug_mode == 'true'
+        run: |
+          echo "🔍 调试模式已开启，不会提交任何变更"
+          echo "📂 当前目录内容："
+          ls -la
+          echo "📁 资料文件夹内容："
+          ls -la 资料文件夹/ || echo "（资料文件夹不存在或为空）"
