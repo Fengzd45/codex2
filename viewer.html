@@ -3,616 +3,218 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>📂 资料库 · 列表查看</title>
+    <title>📂 家族资料库 · 媒体中心</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #f5f0e8; padding: 16px; }
+        body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: #f5f0e8; padding: 16px; color: #4a2a0a; }
         .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
         .header { background: #8b5a2b; color: white; padding: 20px; text-align: center; }
         .header h1 { margin: 0; font-size: 1.6rem; }
         .header p { margin: 8px 0 0; opacity: 0.9; font-size: 0.85rem; }
         .content { padding: 20px; }
-        .folder-select-area { background: #f0e8d8; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-        .folder-status { font-size: 0.85rem; font-weight: bold; flex: 1; }
-        .folder-btn { background: #8b5a2b; color: white; border: none; padding: 8px 20px; border-radius: 30px; cursor: pointer; font-size: 0.85rem; white-space: nowrap; }
-        .folder-btn:disabled { opacity: 0.6; cursor: default; background: #aaa; }
-        .person-list { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
-        .person-row { background: #faf8f0; border-radius: 12px; padding: 10px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid #e0d6c0; transition: background 0.15s; }
-        .person-row:hover { background: #f0e8d8; }
-        .person-name { font-weight: 600; font-size: 1rem; color: #4a2a0a; flex: 0 0 auto; margin-right: 12px; }
-        .person-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.85rem; color: #555; }
-        .person-stats span { white-space: nowrap; }
+        
+        .status-bar { background: #f0e8d8; padding: 14px 20px; border-radius: 16px; margin-bottom: 20px; display: flex; flex-flow: row wrap; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #e0d6c0; }
+        .status-info { font-size: 0.9rem; font-weight: bold; color: #2c5a2c; display: flex; align-items: center; gap: 6px; }
+        
+        .person-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .person-row { background: #faf8f0; border-radius: 14px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid #e0d6c0; transition: transform 0.15s, background-color 0.15s; }
+        .person-row:hover { background: #f0e8d8; transform: translateY(-1px); }
+        .person-name { font-weight: bold; font-size: 1.05rem; color: #4a2a0a; }
+        .person-stats { display: flex; gap: 12px; font-size: 0.85rem; color: #666; }
         .stat-total { font-weight: bold; color: #8b5a2b; }
-        .empty-state { color: #94a3b8; text-align: center; padding: 40px 0; font-size: 1.1rem; }
-        .debug-box { background: #fff3cd; border: 1px solid #ffeeba; border-radius: 12px; padding: 12px; margin-bottom: 16px; font-size: 13px; color: #856404; word-break: break-all; max-height: 200px; overflow-y: auto; }
-
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; visibility: hidden; opacity: 0; transition: visibility 0.2s, opacity 0.2s; z-index: 1000; }
+        
+        /* 弹窗核心样式 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; visibility: hidden; opacity: 0; transition: opacity 0.2s, visibility 0.2s; z-index: 1000; }
         .modal-overlay.active { visibility: visible; opacity: 1; }
-        .modal-container { background: #fffef7; border-radius: 32px; width: 90%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow: hidden; }
-        .modal-header { background: #8b5a2b; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; flex-shrink: 0; }
-        .modal-header h3 { margin: 0; font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .modal-close { background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 40px; }
-        .modal-close:hover { background: rgba(255,255,255,0.2); }
-        .modal-body { flex: 1; overflow-y: auto; padding: 16px 20px; background: #fefcf5; }
+        .modal-container { background: #fffefb; border-radius: 28px; width: 92%; max-width: 850px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden; border: 1px solid #e0d6c0; }
+        .modal-header { background: #8b5a2b; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 1.15rem; }
+        .modal-close { background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .modal-close:hover { background: rgba(255,255,255,0.15); }
+        
+        .modal-body { flex: 1; overflow-y: auto; padding: 20px; background: #fefcf7; display: flex; flex-direction: column; gap: 16px; }
         .file-list-modal { background: #faf8f0; border-radius: 20px; padding: 8px 0; margin-bottom: 20px; max-height: 260px; overflow-y: auto; border: 1px solid #e0d6c0; }
-        .file-item-modal { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #e8e0d0; cursor: pointer; transition: background 0.15s; }
+        .file-item-modal { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #e8e0d0; cursor: pointer; font-size: 0.9rem; transition: background 0.15s; }
+        .file-item-modal:last-child { border-bottom: none; }
         .file-item-modal:hover { background: #f0e8d8; }
-        .file-icon-modal { font-size: 1.3rem; margin-right: 14px; width: 32px; text-align: center; }
-        .file-name-modal { flex: 1; word-break: break-all; font-size: 0.9rem; }
-        .media-preview-modal { background: white; border-radius: 20px; padding: 16px; margin-top: 8px; border: 1px solid #e0d6c0; max-height: 320px; overflow-y: auto; }
-        .preview-image { max-width: 100%; border-radius: 12px; display: block; margin: 0 auto; }
-        .preview-text { white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 0.8rem; }
-        .preview-text a { color: #8b5a2b; text-decoration: underline; }
-        .empty-media-modal { text-align: center; padding: 32px 20px; color: #a0a090; }
-        .download-link-modal { display: inline-block; margin-top: 12px; padding: 6px 14px; background: #8b5a2b; color: white; text-decoration: none; border-radius: 30px; font-size: 0.75rem; }
-        .footer { text-align: center; padding: 16px; font-size: 0.7rem; color: #aaa; border-top: 1px solid #eee; }
-        video { max-width: 100%; max-height: 300px; background: #000; display: block; margin: 0 auto; }
+        .file-icon { margin-right: 12px; font-size: 1.2rem; }
+        .file-name { flex: 1; word-break: break-all; color: #5c3a1a; }
+        
+        .preview-box { background: white; border-radius: 16px; border: 1px solid #e0d6c0; padding: 16px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .preview-box img, .preview-box video { max-width: 100%; max-height: 350px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); display: block; margin: 0 auto; }
+        
+        .download-btn { display: inline-block; margin-top: 14px; padding: 8px 20px; background: #8b5a2b; color: white; text-decoration: none; border-radius: 20px; font-size: 0.8rem; font-weight: bold; text-align: center; }
+        .empty-state { text-align: center; color: #a69e8a; padding: 40px 20px; font-size: 1rem; }
+        .footer { text-align: center; padding: 16px; font-size: 0.75rem; color: #a09885; border-top: 1px solid #e8e2d4; }
     </style>
 </head>
 <body>
+
 <div class="container">
     <div class="header">
-        <h1>📂 资料库 · 列表查看</h1>
-        <p>点击姓名查看多媒体资料 | 支持本地/GitHub双模式</p>
+        <h1>📂 家族资料库 · 媒体中心</h1>
+        <p>点击姓名查看多媒体资料 | 线上自动同步模式</p>
     </div>
     <div class="content">
-        <div class="folder-select-area">
-            <span class="folder-status" id="folderStatus">📁 检测运行环境...</span>
-            <button class="folder-btn" id="selectFolderBtn">📂 加载资料库</button>
+        <div class="status-bar">
+            <div class="status-info" id="statusLabel">🌐 线上模式 | 正在全自动拉取多媒体清单...</div>
         </div>
-        <div id="debugInfo" class="debug-box" style="display:none;"></div>
+
         <div id="personList" class="person-list">
-            <div class="empty-state">⏳ 正在加载资料清单...</div>
+            <div class="empty-state">正在等待加载数据源...</div>
         </div>
     </div>
-    <div class="footer">资料查看器 | 基于 manifest.json</div>
+    <div class="footer">家族亲戚关系网查询系统 | 媒体中心</div>
 </div>
 
 <div id="mediaModal" class="modal-overlay">
     <div class="modal-container">
         <div class="modal-header">
-            <h3 id="modalTitle">📁 多媒体资料</h3>
+            <h3 id="modalTitle">资料附件</h3>
             <button class="modal-close" id="closeModalBtn">&times;</button>
         </div>
-        <div class="modal-body" id="modalBody">
-            <div class="empty-media-modal">加载中...</div>
+        <div class="modal-body">
+            <div class="file-list-modal" id="modalFileList"></div>
+            <div class="preview-box" id="modalPreviewBox">
+                <div class="empty-state">点击上方文件列表进行预览</div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-// =====================================================================
-// 资料查看器 – 相对路径升级版（完美兼容本地环境与 GitHub 仓库层级）
-// =====================================================================
+let manifestData = null;
+const WEB_BASE_PATH = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/资料文件夹/';
 
-// 无论是本地测试还是线上 GitHub Pages，viewer.html 与 资料文件夹 都在同一层。
-// 放弃绝对路径，统一采用相对路径，完美绕开 GitHub 仓库名(Codex2)带来的路径断层。
-const BASE_PATH = './资料文件夹/';
-
-const isOnline = window.location.protocol === 'https:';
-console.log('🌐 环境初始化 | 当前资源基础相对路径 BASE_PATH:', BASE_PATH);
-
-let folderHandle = null;
-let manifestCache = null;
-let peopleList = [];
-
-const folderStatusSpan = document.getElementById('folderStatus');
-const debugDiv = document.getElementById('debugInfo');
+const statusLabel = document.getElementById('statusLabel');
 const personListDiv = document.getElementById('personList');
-const modalMedia = document.getElementById('mediaModal');
+const mediaModal = document.getElementById('mediaModal');
 const modalTitle = document.getElementById('modalTitle');
-const modalBody = document.getElementById('modalBody');
+const modalFileList = document.getElementById('modalFileList');
+const modalPreviewBox = document.getElementById('modalPreviewBox');
 const closeModalBtn = document.getElementById('closeModalBtn');
-const selectFolderBtn = document.getElementById('selectFolderBtn');
 
-function debugLog(msg) {
-    console.log(msg);
-    debugDiv.style.display = 'block';
-    debugDiv.innerHTML += msg + '<br>';
-    debugDiv.scrollTop = debugDiv.scrollHeight;
+function openModal() { mediaModal.classList.add('active'); }
+function closeModal() { 
+    modalPreviewBox.innerHTML = '<div class="empty-state">点击上方文件列表进行预览</div>';
+    mediaModal.classList.remove('active'); 
 }
-function clearDebug() {
-    debugDiv.innerHTML = '';
-    debugDiv.style.display = 'none';
-}
-
-function closeModal() { modalMedia.classList.remove('active'); }
-function openModal() { modalMedia.classList.add('active'); }
 closeModalBtn.onclick = closeModal;
-modalMedia.addEventListener('click', (e) => { if (e.target === modalMedia) closeModal(); });
+mediaModal.onclick = (e) => { if (e.target === mediaModal) closeModal(); };
 
-// ---------- 获取文件URL（全面采用安全规范的相对路径拼接） ----------
 function getFileUrl(personName, fileName) {
-    const encodedName = encodeURIComponent(personName);
-    const encodedFile = encodeURIComponent(fileName);
-    return BASE_PATH + encodedName + '/' + encodedFile;
+    return WEB_BASE_PATH + encodeURIComponent(personName) + '/' + encodeURIComponent(fileName);
 }
 
-// ---------- 预览函数 ----------
-async function previewOnlineFile(url, fileName) {
-    const ext = fileName.split('.').pop().toLowerCase();
-    if (['jpg','jpeg','png','gif','webp'].includes(ext)) {
-        return `<div><img src="${url}" style="max-height:280px; max-width:100%; display:block; margin:0 auto;"><br><a href="${url}" download class="download-link-modal">下载图片</a></div>`;
-    } else if (['mp4','webm'].includes(ext)) {
-        return `<video controls src="${url}" style="max-width:100%; max-height:300px; background:#000;"></video><br><a href="${url}" download class="download-link-modal">下载视频</a>`;
-    } else if (['mp3','wav'].includes(ext)) {
-        return `<audio controls src="${url}" style="width:100%;"></audio><br><a href="${url}" download class="download-link-modal">下载音频</a>`;
-    } else if (ext === 'txt') {
-        try {
-            const resp = await fetch(url);
-            let text = await resp.text();
-            let linkified = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-            return `<div class="preview-text">${linkified}</div><br><a href="${url}" download class="download-link-modal">下载文件</a>`;
-        } catch(e) {
-            return `<a href="${url}" download class="download-link-modal">下载 ${fileName}</a>`;
-        }
-    } else {
-        return `<a href="${url}" download class="download-link-modal">下载 ${fileName}</a>`;
-    }
-}
-
-// ---------- 显示资料 ----------
-async function showPersonMediaInModal(personName) {
-    modalTitle.innerHTML = `📁 ${escapeHtml(personName)} 的资料`;
-    modalBody.innerHTML = `<div class="empty-media-modal">⏳ 正在加载 ${escapeHtml(personName)} 的资料...</div>`;
-    openModal();
-
-    const manifest = await loadManifest();
-    if (!manifest || !manifest[personName]) {
-        modalBody.innerHTML = `<div class="empty-media-modal">📭 该人物暂无资料文件。</div>`;
+function renderUI(data) {
+    manifestData = data;
+    const keys = Object.keys(data);
+    if (keys.length === 0) {
+        personListDiv.innerHTML = '<div class="empty-state">📭 清单内未检测到任何人员多媒体档案。</div>';
         return;
     }
-    const files = manifest[personName];
-
-    let listHtml = `<div class="file-list-modal">`;
-    for (const fname of files) {
-        const url = getFileUrl(personName, fname);
-        const ext = fname.split('.').pop().toLowerCase();
-        const icon = ['jpg','jpeg','png','gif','webp'].includes(ext) ? '🖼️' :
-                     ['mp4','webm','avi','mov'].includes(ext) ? '🎬' :
-                     ['mp3','wav','flac'].includes(ext) ? '🎵' : '📄';
-        listHtml += `<div class="file-item-modal" data-url="${escapeHtml(url)}" data-name="${escapeHtml(fname)}">
-            <span class="file-icon-modal">${icon}</span>
-            <span class="file-name-modal">${escapeHtml(fname)}</span>
-        </div>`;
-    }
-    listHtml += `</div><div id="previewArea" class="media-preview-modal"><div class="empty-media-modal">点击上方文件预览</div></div>`;
-    modalBody.innerHTML = listHtml;
-    const previewDiv = document.getElementById('previewArea');
-
-    document.querySelectorAll('.file-item-modal').forEach(el => {
-        const url = el.getAttribute('data-url');
-        const name = el.getAttribute('data-name');
-        el.onclick = async () => {
-            if (previewDiv) {
-                previewDiv.innerHTML = '<div class="empty-media-modal">⏳ 加载中...</div>';
-                previewDiv.innerHTML = await previewOnlineFile(url, name);
-            }
-        };
-    });
-
-    if (files[0] && previewDiv) {
-        const firstUrl = getFileUrl(personName, files[0]);
-        previewDiv.innerHTML = await previewOnlineFile(firstUrl, files[0]);
-    }
-}
-
-// ---------- 加载 manifest ----------
-async function loadManifest() {
-    if (manifestCache) return manifestCache;
-    try {
-        const resp = await fetch('manifest.json');
-        if (resp.ok) {
-            manifestCache = await resp.json();
-            debugLog('✅ 加载 manifest.json 成功');
-            return manifestCache;
-        }
-    } catch(e) {}
-    return null;
-}
-
-// ---------- 渲染列表 ----------
-function renderPersonList(manifest) {
-    if (!manifest || Object.keys(manifest).length === 0) {
-        personListDiv.innerHTML = `<div class="empty-state">📭 暂无任何资料文件。</div>`;
-        return;
-    }
-    const stats = [];
-    for (const [name, files] of Object.entries(manifest)) {
-        let txtCount = 0, imgCount = 0, vidCount = 0, audioCount = 0;
-        for (const fname of files) {
-            const ext = fname.split('.').pop().toLowerCase();
-            if (['txt','md','json'].includes(ext)) txtCount++;
-            else if (['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext)) imgCount++;
-            else if (['mp4','webm','avi','mov'].includes(ext)) vidCount++;
-            else if (['mp3','wav','flac','aac'].includes(ext)) audioCount++;
-            else txtCount++;
-        }
-        stats.push({ name, txt: txtCount, img: imgCount, vid: vidCount, audio: audioCount, total: files.length });
-    }
-    stats.sort((a,b) => b.total - a.total);
 
     let html = '';
-    for (const s of stats) {
-        html += `<div class="person-row" onclick="showPersonMediaInModal('${s.name}')">
-            <span class="person-name">${escapeHtml(s.name)}</span>
+    keys.forEach(name => {
+        const files = data[name] || [];
+        let imgs = 0, vids = 0, others = 0;
+        files.forEach(f => {
+            const ext = f.split('.').pop().toLowerCase();
+            if(['jpg','jpeg','png','gif','webp'].includes(ext)) imgs++;
+            else if(['mp4','webm','mov'].includes(ext)) vids++;
+            else others++;
+        });
+        
+        html += `
+        <div class="person-row" onclick="inspectPerson('${escapeHtml(name)}')">
+            <span class="person-name">👤 ${escapeHtml(name)}</span>
             <div class="person-stats">
-                <span>📄 ${s.txt}</span>
-                <span>🖼️ ${s.img}</span>
-                <span>🎬 ${s.vid}</span>
-                <span>🎵 ${s.audio}</span>
-                <span class="stat-total">📦 ${s.total}</span>
+                <span>🖼️ 图片: ${imgs}</span>
+                <span>🎬 视频: ${vids}</span>
+                <span class="stat-total">📦 共 ${files.length} 个文件</span>
             </div>
         </div>`;
-    }
+    });
     personListDiv.innerHTML = html;
 }
 
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
-}
-
-// ---------- 主加载 ----------
-async function loadData() {
-    clearDebug();
-    personListDiv.innerHTML = `<div class="empty-state">⏳ 加载中...</div>`;
-    const manifest = await loadManifest();
-    if (manifest) {
-        renderPersonList(manifest);
-        folderStatusSpan.innerHTML = `✅ 已加载资料清单，共 ${Object.keys(manifest).length} 位贡献者。`;
-        folderStatusSpan.style.color = '#2c5a2c';
+function inspectPerson(name) {
+    modalTitle.textContent = `📁 ${name} 的多媒体档案`;
+    const files = manifestData[name] || [];
+    
+    if (files.length === 0) {
+        modalFileList.innerHTML = '<div class="empty-state">该人员目录下无受支持的文件</div>';
+        modalPreviewBox.innerHTML = '';
+        openModal();
         return;
     }
-    folderStatusSpan.innerHTML = '⚠️ 未找到 manifest.json，请先运行同步脚本生成。';
-    folderStatusSpan.style.color = '#c00';
-    personListDiv.innerHTML = `<div class="empty-state">📂 请先运行同步脚本生成 manifest.json。</div>`;
-}
 
-// ---------- 授权按钮 ----------
-selectFolderBtn.onclick = async () => {
-    if (isOnline) {
-        folderStatusSpan.innerHTML = '🌐 线上模式，无需授权。';
-        folderStatusSpan.style.color = '#2c5a2c';
-        return;
-    }
-    try {
-        const rootHandle = await window.showDirectoryPicker();
-        folderHandle = rootHandle;
-        window.rootHandle = rootHandle;
-        folderStatusSpan.innerHTML = '📂 已授权，正在读取 manifest.json...';
-        manifestCache = null;
-        await loadData();
-    } catch(err) {
-        if (err.name !== 'AbortError') {
-            console.error(err);
-            folderStatusSpan.innerHTML = '❌ 授权失败或取消。';
-            folderStatusSpan.style.color = '#c00';
-        }
-    }
-};
-
-// ---------- 初始化 ----------
-(async function init() {
-    if (isOnline) {
-        selectFolderBtn.disabled = true;
-        selectFolderBtn.textContent = '🌐 线上模式';
-        selectFolderBtn.style.opacity = '0.6';
-        folderStatusSpan.innerHTML = '🌐 线上模式，正在加载资料...';
-        await loadData();
-        return;
-    }
-    try {
-        const resp = await fetch('manifest.json');
-        if (resp.ok) {
-            manifestCache = await resp.json();
-            renderPersonList(manifestCache);
-            folderStatusSpan.innerHTML = `✅ 自动加载 manifest.json，共 ${Object.keys(manifestCache).length} 位贡献者。`;
-            folderStatusSpan.style.color = '#2c5a2c';
-            return;
-        }
-    } catch(e) {}
-    folderStatusSpan.innerHTML = '📁 请点击「加载资料库」授权包含 manifest.json 的文件夹。';
-    folderStatusSpan.style.color = '#8b5a2b';
-    personListDiv.innerHTML = `<div class="empty-state">📂 点击上方按钮授权文件夹以浏览资料。</div>`;
-})();
-</script>
-</body>
-</html>        .file-list-modal { background: #faf8f0; border-radius: 20px; padding: 8px 0; margin-bottom: 20px; max-height: 260px; overflow-y: auto; border: 1px solid #e0d6c0; }
-        .file-item-modal { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #e8e0d0; cursor: pointer; transition: background 0.15s; }
-        .file-item-modal:hover { background: #f0e8d8; }
-        .file-icon-modal { font-size: 1.3rem; margin-right: 14px; width: 32px; text-align: center; }
-        .file-name-modal { flex: 1; word-break: break-all; font-size: 0.9rem; }
-        .media-preview-modal { background: white; border-radius: 20px; padding: 16px; margin-top: 8px; border: 1px solid #e0d6c0; max-height: 320px; overflow-y: auto; }
-        .preview-image { max-width: 100%; border-radius: 12px; display: block; margin: 0 auto; }
-        .preview-text { white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 0.8rem; }
-        .preview-text a { color: #8b5a2b; text-decoration: underline; }
-        .empty-media-modal { text-align: center; padding: 32px 20px; color: #a0a090; }
-        .download-link-modal { display: inline-block; margin-top: 12px; padding: 6px 14px; background: #8b5a2b; color: white; text-decoration: none; border-radius: 30px; font-size: 0.75rem; }
-        .footer { text-align: center; padding: 16px; font-size: 0.7rem; color: #aaa; border-top: 1px solid #eee; }
-        video { max-width: 100%; max-height: 300px; background: #000; display: block; margin: 0 auto; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="header">
-        <h1>📂 资料库 · 列表查看</h1>
-        <p>点击姓名查看多媒体资料 | 支持本地/GitHub双模式</p>
-    </div>
-    <div class="content">
-        <div class="folder-select-area">
-            <span class="folder-status" id="folderStatus">📁 检测运行环境...</span>
-            <button class="folder-btn" id="selectFolderBtn">📂 加载资料库</button>
-        </div>
-        <div id="debugInfo" class="debug-box" style="display:none;"></div>
-        <div id="personList" class="person-list">
-            <div class="empty-state">⏳ 正在加载资料清单...</div>
-        </div>
-    </div>
-    <div class="footer">资料查看器 | 基于 manifest.json</div>
-</div>
-
-<div id="mediaModal" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3 id="modalTitle">📁 多媒体资料</h3>
-            <button class="modal-close" id="closeModalBtn">&times;</button>
-        </div>
-        <div class="modal-body" id="modalBody">
-            <div class="empty-media-modal">加载中...</div>
-        </div>
-    </div>
-</div>
-
-<script>
-// =====================================================================
-// 资料查看器 – 自动识别本地/GitHub环境
-// =====================================================================
-
-// ★★★ 关键：自动检测运行环境 ★★★
-const isOnline = window.location.protocol === 'https:';
-const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-
-// 根据环境决定基础路径
-let BASE_PATH = '';
-if (isOnline && !isLocal) {
-    // GitHub Pages 环境：使用仓库名作为基础路径
-    const pathParts = window.location.pathname.split('/');
-    // 假设 viewer.html 在仓库根目录
-    BASE_PATH = window.location.origin + '/资料文件夹/';
-} else {
-    // 本地环境：直接使用根路径
-    BASE_PATH = '/资料文件夹/';
-}
-
-console.log('🌐 环境检测:', isOnline ? '线上' : '线下', 'BASE_PATH:', BASE_PATH);
-
-let folderHandle = null;
-let manifestCache = null;
-let peopleList = [];
-
-const folderStatusSpan = document.getElementById('folderStatus');
-const debugDiv = document.getElementById('debugInfo');
-const personListDiv = document.getElementById('personList');
-const modalMedia = document.getElementById('mediaModal');
-const modalTitle = document.getElementById('modalTitle');
-const modalBody = document.getElementById('modalBody');
-const closeModalBtn = document.getElementById('closeModalBtn');
-const selectFolderBtn = document.getElementById('selectFolderBtn');
-
-function debugLog(msg) {
-    console.log(msg);
-    debugDiv.style.display = 'block';
-    debugDiv.innerHTML += msg + '<br>';
-    debugDiv.scrollTop = debugDiv.scrollHeight;
-}
-function clearDebug() {
-    debugDiv.innerHTML = '';
-    debugDiv.style.display = 'none';
-}
-
-function closeModal() { modalMedia.classList.remove('active'); }
-function openModal() { modalMedia.classList.add('active'); }
-closeModalBtn.onclick = closeModal;
-modalMedia.addEventListener('click', (e) => { if (e.target === modalMedia) closeModal(); });
-
-// ---------- 获取文件URL（自动适配环境） ----------
-function getFileUrl(personName, fileName) {
-    // 如果是在线环境，使用 BASE_PATH；否则使用相对路径
-    const encodedName = encodeURIComponent(personName);
-    const encodedFile = encodeURIComponent(fileName);
-    return BASE_PATH + encodedName + '/' + encodedFile;
-}
-
-// ---------- 预览函数 ----------
-async function previewOnlineFile(url, fileName) {
-    const ext = fileName.split('.').pop().toLowerCase();
-    if (['jpg','jpeg','png','gif','webp'].includes(ext)) {
-        return `<div><img src="${url}" style="max-height:280px;"><br><a href="${url}" download>下载</a></div>`;
-    } else if (['mp4','webm'].includes(ext)) {
-        return `<video controls src="${url}" style="max-width:100%; max-height:300px; background:#000;"></video><br><a href="${url}" download>下载</a>`;
-    } else if (['mp3','wav'].includes(ext)) {
-        return `<audio controls src="${url}" style="width:100%;"></audio><br><a href="${url}" download>下载</a>`;
-    } else if (ext === 'txt') {
-        try {
-            const resp = await fetch(url);
-            let text = await resp.text();
-            let linkified = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-            return `<div class="preview-text">${linkified}</div><br><a href="${url}" download>下载文件</a>`;
-        } catch(e) {
-            return `<a href="${url}" download>下载 ${fileName}</a>`;
-        }
-    } else {
-        return `<a href="${url}" download>下载 ${fileName}</a>`;
-    }
-}
-
-// ---------- 显示资料 ----------
-async function showPersonMediaInModal(personName) {
-    modalTitle.innerHTML = `📁 ${escapeHtml(personName)} 的资料`;
-    modalBody.innerHTML = `<div class="empty-media-modal">⏳ 正在加载 ${escapeHtml(personName)} 的资料...</div>`;
+    let fileHtml = '';
+    files.forEach((fname) => {
+        const ext = fname.split('.').pop().toLowerCase();
+        let icon = '📄';
+        if(['jpg','jpeg','png','gif','webp'].includes(ext)) icon = '🖼️';
+        else if(['mp4','webm','mov'].includes(ext)) icon = '🎬';
+        
+        fileHtml += `
+        <div class="file-item-modal" onclick="playMedia('${escapeHtml(name)}', '${escapeHtml(fname)}')">
+            <span class="file-icon">${icon}</span>
+            <span class="file-name">${escapeHtml(fname)}</span>
+        </div>`;
+    });
+    modalFileList.innerHTML = fileHtml;
     openModal();
 
-    const manifest = await loadManifest();
-    if (!manifest || !manifest[personName]) {
-        modalBody.innerHTML = `<div class="empty-media-modal">📭 该人物暂无资料文件。</div>`;
-        return;
-    }
-    const files = manifest[personName];
-
-    let listHtml = `<div class="file-list-modal">`;
-    for (const fname of files) {
-        const url = getFileUrl(personName, fname);
-        const ext = fname.split('.').pop().toLowerCase();
-        const icon = ['jpg','jpeg','png','gif','webp'].includes(ext) ? '🖼️' :
-                     ['mp4','webm','avi','mov'].includes(ext) ? '🎬' :
-                     ['mp3','wav','flac'].includes(ext) ? '🎵' : '📄';
-        listHtml += `<div class="file-item-modal" data-url="${escapeHtml(url)}" data-name="${escapeHtml(fname)}">
-            <span class="file-icon-modal">${icon}</span>
-            <span class="file-name-modal">${escapeHtml(fname)}</span>
-        </div>`;
-    }
-    listHtml += `</div><div id="previewArea" class="media-preview-modal"><div class="empty-media-modal">点击上方文件预览</div></div>`;
-    modalBody.innerHTML = listHtml;
-    const previewDiv = document.getElementById('previewArea');
-
-    document.querySelectorAll('.file-item-modal').forEach(el => {
-        const url = el.getAttribute('data-url');
-        const name = el.getAttribute('data-name');
-        el.onclick = async () => {
-            if (previewDiv) {
-                previewDiv.innerHTML = '<div class="empty-media-modal">⏳ 加载中...</div>';
-                previewDiv.innerHTML = await previewOnlineFile(url, name);
-            }
-        };
-    });
-
-    if (files[0] && previewDiv) {
-        const firstUrl = getFileUrl(personName, files[0]);
-        previewDiv.innerHTML = await previewOnlineFile(firstUrl, files[0]);
+    if(files.length > 0) {
+        playMedia(name, files[0]);
     }
 }
 
-// ---------- 加载 manifest ----------
-async function loadManifest() {
-    if (manifestCache) return manifestCache;
-    try {
-        const resp = await fetch('manifest.json');
-        if (resp.ok) {
-            manifestCache = await resp.json();
-            debugLog('✅ 加载 manifest.json 成功');
-            return manifestCache;
-        }
-    } catch(e) {}
-    return null;
-}
+async function playMedia(personName, fileName) {
+    modalPreviewBox.innerHTML = '<div class="empty-state">⏳ 正在加载媒体资源...</div>';
+    const fileUrl = getFileUrl(personName, fileName);
+    const ext = fileName.split('.').pop().toLowerCase();
+    const downloadSection = `<div><a href="${fileUrl}" download="${fileName}" class="download-btn">⬇️ 下载此文件</a></div>`;
 
-// ---------- 渲染列表 ----------
-function renderPersonList(manifest) {
-    if (!manifest || Object.keys(manifest).length === 0) {
-        personListDiv.innerHTML = `<div class="empty-state">📭 暂无任何资料文件。</div>`;
-        return;
-    }
-    const stats = [];
-    for (const [name, files] of Object.entries(manifest)) {
-        let txtCount = 0, imgCount = 0, vidCount = 0, audioCount = 0;
-        for (const fname of files) {
-            const ext = fname.split('.').pop().toLowerCase();
-            if (['txt','md','json'].includes(ext)) txtCount++;
-            else if (['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext)) imgCount++;
-            else if (['mp4','webm','avi','mov'].includes(ext)) vidCount++;
-            else if (['mp3','wav','flac','aac'].includes(ext)) audioCount++;
-            else txtCount++;
+    setTimeout(() => {
+        if(['jpg','jpeg','png','gif','webp'].includes(ext)) {
+            modalPreviewBox.innerHTML = `<div><img src="${fileUrl}" alt="图片加载失败" style="max-width:100%; max-height:350px;"><br>${downloadSection}</div>`;
+        } else if(['mp4','webm','mov'].includes(ext)) {
+            modalPreviewBox.innerHTML = `
+            <div style="width:100%;">
+                <video controls playsinline webkit-playsinline width="100%" style="background:#000;">
+                    <source src="${fileUrl}" type="video/mp4">
+                    您的设备不支持在线直接播放此视频。
+                </video>
+                <br>${downloadSection}
+            </div>`;
+        } else {
+            modalPreviewBox.innerHTML = `
+            <div>
+                <p style="margin:20px 0; color:#8b5a2b; font-weight:bold;">📄 该格式暂不支持在线预览</p>
+                ${downloadSection}
+            </div>`;
         }
-        stats.push({ name, txt: txtCount, img: imgCount, vid: vidCount, audio: audioCount, total: files.length });
-    }
-    stats.sort((a,b) => b.total - a.total);
-
-    let html = '';
-    for (const s of stats) {
-        html += `<div class="person-row" onclick="showPersonMediaInModal('${s.name}')">
-            <span class="person-name">${escapeHtml(s.name)}</span>
-            <div class="person-stats">
-                <span>📄 ${s.txt}</span>
-                <span>🖼️ ${s.img}</span>
-                <span>🎬 ${s.vid}</span>
-                <span>🎵 ${s.audio}</span>
-                <span class="stat-total">📦 ${s.total}</span>
-            </div>
-        </div>`;
-    }
-    personListDiv.innerHTML = html;
+    }, 50);
 }
 
 function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+    return str.replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 }
 
-// ---------- 主加载 ----------
-async function loadData() {
-    clearDebug();
-    personListDiv.innerHTML = `<div class="empty-state">⏳ 加载中...</div>`;
-    const manifest = await loadManifest();
-    if (manifest) {
-        renderPersonList(manifest);
-        folderStatusSpan.innerHTML = `✅ 已加载资料清单，共 ${Object.keys(manifest).length} 位贡献者。`;
-        folderStatusSpan.style.color = '#2c5a2c';
-        return;
-    }
-    folderStatusSpan.innerHTML = '⚠️ 未找到 manifest.json，请先运行同步脚本生成。';
-    folderStatusSpan.style.color = '#c00';
-    personListDiv.innerHTML = `<div class="empty-state">📂 请先运行同步脚本生成 manifest.json。</div>`;
-}
-
-// ---------- 授权按钮 ----------
-selectFolderBtn.onclick = async () => {
-    if (isOnline) {
-        folderStatusSpan.innerHTML = '🌐 线上模式，无需授权。';
-        folderStatusSpan.style.color = '#2c5a2c';
-        return;
-    }
+window.onload = async function() {
     try {
-        const rootHandle = await window.showDirectoryPicker();
-        folderHandle = rootHandle;
-        window.rootHandle = rootHandle;
-        folderStatusSpan.innerHTML = '📂 已授权，正在读取 manifest.json...';
-        manifestCache = null;
-        await loadData();
-    } catch(err) {
-        if (err.name !== 'AbortError') {
-            console.error(err);
-            folderStatusSpan.innerHTML = '❌ 授权失败或取消。';
-            folderStatusSpan.style.color = '#c00';
-        }
+        const response = await fetch('manifest.json?v=' + Date.now());
+        if (response.ok) {
+            const data = await response.json();
+            statusLabel.innerHTML = `✅ 线上同步成功！已成功载入多媒体数据。`;
+            renderUI(data);
+        } else { throw new Error(); }
+    } catch (e) {
+        statusLabel.innerHTML = '❌ 未找到有效清单，请确保 manifest.json 在当前仓库下。';
+        statusLabel.style.color = '#c00';
     }
 };
-
-// ---------- 初始化 ----------
-(async function init() {
-    if (isOnline) {
-        selectFolderBtn.disabled = true;
-        selectFolderBtn.textContent = '🌐 线上模式';
-        selectFolderBtn.style.opacity = '0.6';
-        folderStatusSpan.innerHTML = '🌐 线上模式，正在加载资料...';
-        await loadData();
-        return;
-    }
-    try {
-        const resp = await fetch('manifest.json');
-        if (resp.ok) {
-            manifestCache = await resp.json();
-            renderPersonList(manifestCache);
-            folderStatusSpan.innerHTML = `✅ 自动加载 manifest.json，共 ${Object.keys(manifestCache).length} 位贡献者。`;
-            folderStatusSpan.style.color = '#2c5a2c';
-            return;
-        }
-    } catch(e) {}
-    folderStatusSpan.innerHTML = '📁 请点击「加载资料库」授权包含 manifest.json 的文件夹。';
-    folderStatusSpan.style.color = '#8b5a2b';
-    personListDiv.innerHTML = `<div class="empty-state">📂 点击上方按钮授权文件夹以浏览资料。</div>`;
-})();
-
 </script>
 </body>
 </html>
