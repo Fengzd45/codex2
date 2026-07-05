@@ -15,8 +15,6 @@
         
         .status-bar { background: #f0e8d8; padding: 14px 20px; border-radius: 16px; margin-bottom: 20px; display: flex; flex-flow: row wrap; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #e0d6c0; }
         .status-info { font-size: 0.9rem; font-weight: bold; color: #2c5a2c; display: flex; align-items: center; gap: 6px; }
-        .copy-btn { background: #8b5a2b; color: white; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; font-weight: bold; transition: background 0.2s; }
-        .copy-btn:hover { background: #6a4420; }
         
         .person-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         .person-row { background: #faf8f0; border-radius: 14px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid #e0d6c0; transition: transform 0.15s, background-color 0.15s; }
@@ -48,13 +46,8 @@
         .preview-box audio { width: 100%; margin: 20px 0; }
         .preview-text { text-align: left; white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 0.8rem; border: 1px solid #ddd; width: 100%; word-break: break-all; max-height: 300px; overflow-y: auto; }
         
-        .download-btn { display: inline-block; margin-top: 14px; padding: 8px 20px; background: #8b5a2b; color: white; text-decoration: none; border-radius: 20px; font-size: 0.8rem; font-weight: bold; text-align: center; transition: background 0.2s; }
-        .download-btn:hover { background: #6a4420; }
         .empty-state { text-align: center; color: #a69e8a; padding: 40px 20px; font-size: 1rem; }
         .footer { text-align: center; padding: 16px; font-size: 0.75rem; color: #a09885; border-top: 1px solid #e8e2d4; }
-        
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c5a2c; color: white; padding: 10px 24px; border-radius: 30px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; z-index: 2000; pointer-events: none; }
-        .toast.show { opacity: 1; }
         
         @media (max-width: 600px) {
             .person-stats { font-size: 0.7rem; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
@@ -75,7 +68,7 @@
     <div class="content">
         <div class="status-bar">
             <div class="status-info" id="statusLabel">🌐 线上模式 | 正在全自动拉取多媒体清单...</div>
-            <button class="copy-btn" id="copyAllBtn" title="复制所有文件链接">📋 复制全部链接</button>
+            <!-- 已移除 复制全部链接 按钮 -->
         </div>
 
         <div id="personList" class="person-list">
@@ -96,21 +89,15 @@
             <div class="preview-box" id="modalPreviewBox">
                 <div class="empty-state">点击上方文件列表进行预览</div>
             </div>
-            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:4px;">
-                <button class="copy-btn" id="copyFileLinksBtn" style="font-size:0.75rem; padding:6px 14px;">📋 复制当前文件链接</button>
-                <button class="copy-btn" id="copyAllFilesBtn" style="font-size:0.75rem; padding:6px 14px;">📋 复制全部文件链接</button>
-            </div>
+            <!-- 已移除底部复制按钮组 -->
         </div>
     </div>
 </div>
-
-<div id="toast" class="toast">✅ 已复制到剪贴板</div>
 
 <script>
 let manifestData = null;
 let currentPersonName = '';
 let currentFileList = [];
-let currentFileUrl = '';
 
 // 🔥 关键修复1：使用与 family2.html 完全相同的 GITHUB_BASE
 // 注意：目录名是「资料」不是「资料文件夹」
@@ -123,7 +110,6 @@ const modalTitle = document.getElementById('modalTitle');
 const modalFileList = document.getElementById('modalFileList');
 const modalPreviewBox = document.getElementById('modalPreviewBox');
 const closeModalBtn = document.getElementById('closeModalBtn');
-const toast = document.getElementById('toast');
 
 function openModal() { mediaModal.classList.add('active'); }
 function closeModal() { 
@@ -140,72 +126,6 @@ mediaModal.onclick = (e) => { if (e.target === mediaModal) closeModal(); };
 function getFileUrl(personName, fileName) {
     return GITHUB_BASE + encodeURIComponent(personName) + '/' + encodeURIComponent(fileName);
 }
-
-function showToast(message = '✅ 已复制到剪贴板') {
-    toast.textContent = message;
-    toast.classList.add('show');
-    clearTimeout(toast._timer);
-    toast._timer = setTimeout(() => toast.classList.remove('show'), 2000);
-}
-
-async function copyToClipboard(text, successMsg = '✅ 已复制到剪贴板') {
-    try {
-        await navigator.clipboard.writeText(text);
-        showToast(successMsg);
-        return true;
-    } catch (e) {
-        try {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.style.position = 'fixed';
-            textarea.style.left = '-9999px';
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            showToast(successMsg);
-            return true;
-        } catch (e2) {
-            showToast('❌ 复制失败，请手动复制');
-            return false;
-        }
-    }
-}
-
-document.getElementById('copyAllBtn').addEventListener('click', async function() {
-    if (!manifestData) {
-        showToast('⚠️ 数据尚未加载完成');
-        return;
-    }
-    const allLinks = [];
-    for (const [name, files] of Object.entries(manifestData)) {
-        for (const f of files) {
-            allLinks.push(getFileUrl(name, f));
-        }
-    }
-    if (allLinks.length === 0) {
-        showToast('⚠️ 没有可复制的文件链接');
-        return;
-    }
-    await copyToClipboard(allLinks.join('\n'), `✅ 已复制 ${allLinks.length} 个文件链接`);
-});
-
-document.getElementById('copyFileLinksBtn').addEventListener('click', async function() {
-    if (!currentFileUrl) {
-        showToast('⚠️ 请先选择一个文件');
-        return;
-    }
-    await copyToClipboard(currentFileUrl, '✅ 已复制当前文件链接');
-});
-
-document.getElementById('copyAllFilesBtn').addEventListener('click', async function() {
-    if (currentFileList.length === 0) {
-        showToast('⚠️ 没有可复制的文件');
-        return;
-    }
-    const links = currentFileList.map(f => getFileUrl(currentPersonName, f));
-    await copyToClipboard(links.join('\n'), `✅ 已复制 ${links.length} 个文件链接`);
-});
 
 function renderUI(data) {
     manifestData = data;
@@ -276,46 +196,42 @@ function inspectPerson(name) {
     }
 }
 
-// 🔥 关键修复3：完全照搬 family2.html 的预览逻辑
+// 🔥 关键修复3：预览逻辑（已移除下载按钮）
 async function playMedia(personName, fileName) {
     modalPreviewBox.innerHTML = '<div class="empty-state">⏳ 正在加载媒体资源...</div>';
     const fileUrl = getFileUrl(personName, fileName);
-    currentFileUrl = fileUrl;
     const ext = fileName.split('.').pop().toLowerCase();
-    const downloadSection = `<div><a href="${fileUrl}" download="${fileName}" class="download-btn">⬇️ 下载此文件</a></div>`;
 
     // 高亮当前选中的文件
     document.querySelectorAll('.file-item-modal').forEach(el => {
         el.classList.toggle('active', el.getAttribute('data-filename') === fileName);
     });
 
-    // ✅ 直接照搬 family2.html 的预览代码
+    // 纯预览逻辑，去掉了 download-btn
     if (['jpg','jpeg','png','gif','webp'].includes(ext)) {
-        modalPreviewBox.innerHTML = `<div><img src="${fileUrl}" style="max-height:280px;"><br>${downloadSection}</div>`;
+        modalPreviewBox.innerHTML = `<div><img src="${fileUrl}" style="max-height:280px;"></div>`;
     } else if (['mp4','webm'].includes(ext)) {
-        // ✅ 这就是 family2.html 成功的视频播放代码
-        modalPreviewBox.innerHTML = `<video controls src="${fileUrl}" style="max-width:100%; max-height:320px;"></video><br>${downloadSection}`;
+        modalPreviewBox.innerHTML = `<video controls src="${fileUrl}" style="max-width:100%; max-height:320px;"></video>`;
     } else if (['mp3','wav'].includes(ext)) {
-        modalPreviewBox.innerHTML = `<audio controls src="${fileUrl}" style="width:100%;"></audio><br>${downloadSection}`;
+        modalPreviewBox.innerHTML = `<audio controls src="${fileUrl}" style="width:100%;"></audio>`;
     } else if (ext === 'txt') {
         try {
             const resp = await fetch(fileUrl);
             if (resp.ok) {
                 let text = await resp.text();
                 let linkified = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-                modalPreviewBox.innerHTML = `<div class="preview-text">${linkified}</div><br>${downloadSection}`;
+                modalPreviewBox.innerHTML = `<div class="preview-text">${linkified}</div>`;
             } else {
                 throw new Error();
             }
         } catch(e) {
-            modalPreviewBox.innerHTML = `<div class="empty-state">📄 文本载入失败</div><br>${downloadSection}`;
+            modalPreviewBox.innerHTML = `<div class="empty-state">📄 文本载入失败</div>`;
         }
     } else {
         modalPreviewBox.innerHTML = `
         <div style="text-align:center;">
             <p style="margin:20px 0; color:#8b5a2b; font-weight:bold;">📄 该格式暂不支持在线预览</p>
             <p style="font-size:0.8rem; color:#999;">文件: ${escapeHtml(fileName)}</p>
-            ${downloadSection}
         </div>`;
     }
 }
