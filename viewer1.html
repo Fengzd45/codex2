@@ -17,7 +17,6 @@
         .status-info { font-size: 0.9rem; font-weight: bold; color: #2c5a2c; display: flex; align-items: center; gap: 6px; }
         .copy-btn { background: #8b5a2b; color: white; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; font-weight: bold; transition: background 0.2s; }
         .copy-btn:hover { background: #6a4420; }
-        .copy-btn.copied { background: #2c5a2c; }
         
         .person-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         .person-row { background: #faf8f0; border-radius: 14px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border: 1px solid #e0d6c0; transition: transform 0.15s, background-color 0.15s; }
@@ -113,7 +112,8 @@ let currentPersonName = '';
 let currentFileList = [];
 let currentFileUrl = '';
 
-// 🔥 关键修复：使用与 family2.html 完全相同的路径构建方式
+// 🔥 关键修复1：使用与 family2.html 完全相同的 GITHUB_BASE
+// 注意：目录名是「资料」不是「资料文件夹」
 const GITHUB_BASE = 'https://fengzd45.github.io/codex1/%E8%B5%84%E6%96%99/';
 
 const statusLabel = document.getElementById('statusLabel');
@@ -136,11 +136,9 @@ function closeModal() {
 closeModalBtn.onclick = closeModal;
 mediaModal.onclick = (e) => { if (e.target === mediaModal) closeModal(); };
 
-// 🔥 关键修复：使用与 family2.html 完全相同的 URL 构建方式
+// 🔥 关键修复2：与 family2.html 完全相同的 URL 构建
 function getFileUrl(personName, fileName) {
-    // 清理文件名中的换行符和多余空格
-    const cleanName = fileName.replace(/\s+/g, ' ').trim();
-    return GITHUB_BASE + encodeURIComponent(personName) + '/' + encodeURIComponent(cleanName);
+    return GITHUB_BASE + encodeURIComponent(personName) + '/' + encodeURIComponent(fileName);
 }
 
 function showToast(message = '✅ 已复制到剪贴板') {
@@ -222,9 +220,7 @@ function renderUI(data) {
         const files = data[name] || [];
         let imgs = 0, vids = 0, others = 0;
         files.forEach(f => {
-            // 清理文件名
-            const cleanF = f.replace(/\s+/g, ' ').trim();
-            const ext = cleanF.split('.').pop().toLowerCase();
+            const ext = f.split('.').pop().toLowerCase();
             if(['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext)) imgs++;
             else if(['mp4','webm','mov','avi','mkv'].includes(ext)) vids++;
             else others++;
@@ -258,8 +254,7 @@ function inspectPerson(name) {
 
     let fileHtml = '';
     files.forEach((fname, index) => {
-        const cleanFname = fname.replace(/\s+/g, ' ').trim();
-        const ext = cleanFname.split('.').pop().toLowerCase();
+        const ext = fname.split('.').pop().toLowerCase();
         let icon = '📄';
         if(['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext)) icon = '🖼️';
         else if(['mp4','webm','mov','avi','mkv'].includes(ext)) icon = '🎬';
@@ -268,61 +263,61 @@ function inspectPerson(name) {
         
         const activeClass = index === 0 ? 'active' : '';
         fileHtml += `
-        <div class="file-item-modal ${activeClass}" onclick="playMedia('${escapeHtml(name)}', '${escapeHtml(cleanFname)}')" data-filename="${escapeHtml(cleanFname)}">
+        <div class="file-item-modal ${activeClass}" onclick="playMedia('${escapeHtml(name)}', '${escapeHtml(fname)}')" data-filename="${escapeHtml(fname)}">
             <span class="file-icon">${icon}</span>
-            <span class="file-name">${escapeHtml(cleanFname)}</span>
+            <span class="file-name">${escapeHtml(fname)}</span>
         </div>`;
     });
     modalFileList.innerHTML = fileHtml;
     openModal();
 
     if(files.length > 0) {
-        const firstFile = files[0].replace(/\s+/g, ' ').trim();
-        playMedia(name, firstFile);
+        playMedia(name, files[0]);
     }
 }
 
-// 🔥 关键修复：完全照搬 family2.html 的预览逻辑
-async function previewOnlineFile(url, fileName) {
-    const ext = fileName.split('.').pop().toLowerCase();
-    if (['jpg','jpeg','png','gif','webp'].includes(ext)) {
-        return `<div><img src="${url}" style="max-height:280px;"><br><a href="${url}" download>下载</a></div>`;
-    } else if (['mp4','webm'].includes(ext)) {
-        // ✅ 直接照搬 family2.html 的成功代码
-        return `<video controls src="${url}"></video><br><a href="${url}" download>下载</a>`;
-    } else if (['mp3','wav'].includes(ext)) {
-        return `<audio controls src="${url}"></audio><br><a href="${url}" download>下载</a>`;
-    } else if (ext === 'txt') {
-        try {
-            const resp = await fetch(url);
-            let text = await resp.text();
-            let linkified = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-            return `<div class="preview-text">${linkified}</div><br><a href="${url}" download>下载文件</a>`;
-        } catch(e) {
-            return `<a href="${url}" download>下载 ${fileName}</a>`;
-        }
-    } else {
-        return `<a href="${url}" download>下载 ${fileName}</a>`;
-    }
-}
-
+// 🔥 关键修复3：完全照搬 family2.html 的预览逻辑
 async function playMedia(personName, fileName) {
     modalPreviewBox.innerHTML = '<div class="empty-state">⏳ 正在加载媒体资源...</div>';
-    // 清理文件名
-    const cleanName = fileName.replace(/\s+/g, ' ').trim();
-    const fileUrl = getFileUrl(personName, cleanName);
+    const fileUrl = getFileUrl(personName, fileName);
     currentFileUrl = fileUrl;
-    const ext = cleanName.split('.').pop().toLowerCase();
-    const downloadSection = `<div><a href="${fileUrl}" download="${cleanName}" class="download-btn">⬇️ 下载此文件</a></div>`;
+    const ext = fileName.split('.').pop().toLowerCase();
+    const downloadSection = `<div><a href="${fileUrl}" download="${fileName}" class="download-btn">⬇️ 下载此文件</a></div>`;
 
     // 高亮当前选中的文件
     document.querySelectorAll('.file-item-modal').forEach(el => {
-        el.classList.toggle('active', el.getAttribute('data-filename') === cleanName);
+        el.classList.toggle('active', el.getAttribute('data-filename') === fileName);
     });
 
-    // 🔥 关键修复：使用与 family2.html 完全相同的预览方式
-    const previewHtml = await previewOnlineFile(fileUrl, cleanName);
-    modalPreviewBox.innerHTML = previewHtml + downloadSection;
+    // ✅ 直接照搬 family2.html 的预览代码
+    if (['jpg','jpeg','png','gif','webp'].includes(ext)) {
+        modalPreviewBox.innerHTML = `<div><img src="${fileUrl}" style="max-height:280px;"><br>${downloadSection}</div>`;
+    } else if (['mp4','webm'].includes(ext)) {
+        // ✅ 这就是 family2.html 成功的视频播放代码
+        modalPreviewBox.innerHTML = `<video controls src="${fileUrl}" style="max-width:100%; max-height:320px;"></video><br>${downloadSection}`;
+    } else if (['mp3','wav'].includes(ext)) {
+        modalPreviewBox.innerHTML = `<audio controls src="${fileUrl}" style="width:100%;"></audio><br>${downloadSection}`;
+    } else if (ext === 'txt') {
+        try {
+            const resp = await fetch(fileUrl);
+            if (resp.ok) {
+                let text = await resp.text();
+                let linkified = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+                modalPreviewBox.innerHTML = `<div class="preview-text">${linkified}</div><br>${downloadSection}`;
+            } else {
+                throw new Error();
+            }
+        } catch(e) {
+            modalPreviewBox.innerHTML = `<div class="empty-state">📄 文本载入失败</div><br>${downloadSection}`;
+        }
+    } else {
+        modalPreviewBox.innerHTML = `
+        <div style="text-align:center;">
+            <p style="margin:20px 0; color:#8b5a2b; font-weight:bold;">📄 该格式暂不支持在线预览</p>
+            <p style="font-size:0.8rem; color:#999;">文件: ${escapeHtml(fileName)}</p>
+            ${downloadSection}
+        </div>`;
+    }
 }
 
 function escapeHtml(str) {
