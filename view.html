@@ -46,8 +46,6 @@
         .system-call-btn { display: inline-block; margin-top: 10px; padding: 10px 20px; background: #2c5a2c; color: white; text-decoration: none; border-radius: 20px; font-size: 0.85rem; font-weight: bold; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.15); cursor: pointer; border: none; min-width: 120px; }
         .btn-download { background: #2c5a2c; }
         .btn-player { background: #8b5a2b; }
-        .btn-system { background: #1a6b8a; }
-        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 10px; width: 100%; }
         .empty-state { text-align: center; color: #a69e8a; padding: 40px 20px; font-size: 1rem; width: 100%; }
         .footer { text-align: center; padding: 16px; font-size: 0.75rem; color: #a09885; border-top: 1px solid #e8e2d4; }
         .mode-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
@@ -121,27 +119,22 @@ let httpBasePath = '';
 // ========== 检测运行环境 ==========
 function detectMode() {
     const protocol = window.location.protocol;
-    const host = window.location.host;
     
-    // 如果是 http:// 或 https:// 访问
     if (protocol === 'http:' || protocol === 'https:') {
         isHttpMode = true;
-        // 计算基础路径
         const path = window.location.pathname;
         const base = path.substring(0, path.lastIndexOf('/') + 1);
         httpBasePath = base + '资料文件夹/';
         document.getElementById('modeHint').innerHTML = 
-            `<span class="env-banner env-http">🌐 HTTP模式</span> 视频播放兼容性最佳`;
-        document.getElementById('statusLabel').innerHTML = '✅ 使用HTTP加载，支持所有视频格式';
-        // HTTP模式下隐藏授权按钮
+            `<span class="env-banner env-http">🌐 HTTP模式</span>`;
+        document.getElementById('statusLabel').innerHTML = '✅ HTTP模式加载';
         document.getElementById('folderPickerArea').style.display = 'none';
         return true;
     } else {
-        // file:// 协议
         isHttpMode = false;
         document.getElementById('modeHint').innerHTML = 
-            `<span class="env-banner env-local">📁 本地文件模式</span> 视频可能受限，建议使用HTTP`;
-        document.getElementById('statusLabel').innerHTML = '📁 请授权文件夹访问';
+            `<span class="env-banner env-local">📁 本地模式</span>`;
+        document.getElementById('statusLabel').innerHTML = '📁 请授权文件夹';
         return false;
     }
 }
@@ -171,7 +164,7 @@ async function loadHttpManifest() {
         const resp = await fetch('manifest.json?v=' + Date.now());
         if (resp.ok) {
             manifestData = await resp.json();
-            statusLabel.innerHTML = `✅ 加载成功 | 共 ${Object.keys(manifestData).length} 人 (HTTP模式)`;
+            statusLabel.innerHTML = `✅ 共 ${Object.keys(manifestData).length} 人`;
             renderUI(manifestData);
             personListDiv.style.display = 'block';
         } else {
@@ -235,7 +228,7 @@ async function scanLocalFolder(handle) {
         }
     }
     
-    statusLabel.innerHTML = `✅ 扫描完成 | 共 ${Object.keys(manifestData).length} 人，${totalFiles} 个文件`;
+    statusLabel.innerHTML = `✅ 共 ${Object.keys(manifestData).length} 人，${totalFiles} 个文件`;
     renderUI(manifestData);
 }
 
@@ -299,7 +292,7 @@ function inspectPerson(name) {
     if (files.length > 0) playMedia(name, files[0]);
 }
 
-// ========== ★★★ 播放媒体（自动适配HTTP/本地模式）★★★ ==========
+// ========== ★★★ 播放媒体（视频只保留播放器，无任何按键）★★★ ==========
 async function playMedia(personName, fileName) {
     modalPreviewBox.innerHTML = '<div class="empty-state">⏳ 加载中...</div>';
     
@@ -326,25 +319,18 @@ async function playMedia(personName, fileName) {
         return;
     }
     
-    // ----- 视频（关键修复：HTTP模式直接使用URL，本地模式使用ObjectURL）-----
+    // ----- 视频：只有播放器，没有任何按键 -----
     if (['mp4','webm','mov','avi','mkv'].includes(ext)) {
         let mimeType = 'video/mp4';
         if (ext === 'webm') mimeType = 'video/webm';
         else if (ext === 'mov') mimeType = 'video/quicktime';
         
-        const videoHtml = `
-            <video id="videoPlayer" controls playsinline webkit-playsinline style="max-width:100%; max-height:350px; background:#000; border-radius:12px;">
+        modalPreviewBox.innerHTML = `
+            <video id="videoPlayer" controls playsinline webkit-playsinline style="max-width:100%; max-height:350px; background:#000; border-radius:12px; width:100%;">
                 <source src="${fileUrl}" type="${mimeType}">
                 您的浏览器不支持此视频格式
             </video>
-            <div class="btn-group">
-                <a href="${fileUrl}" download="${fileName}" class="system-call-btn btn-download">⬇️ 下载视频</a>
-                ${isHttpMode ? `<a href="${fileUrl}" target="_blank" class="system-call-btn btn-system">📱 新窗口播放</a>` : ''}
-                <a href="${fileUrl}" target="_blank" class="system-call-btn btn-player">📱 系统播放器</a>
-            </div>
-            ${!isHttpMode ? '<div style="font-size:0.75rem; color:#999; margin-top:6px;">💡 如无法播放，请点击「系统播放器」用外部应用打开</div>' : ''}
         `;
-        modalPreviewBox.innerHTML = videoHtml;
         
         // 尝试自动播放
         setTimeout(() => {
@@ -360,7 +346,6 @@ async function playMedia(personName, fileName) {
             <audio controls style="width:100%; margin:10px 0;">
                 <source src="${fileUrl}">
             </audio>
-            <a href="${fileUrl}" download="${fileName}" class="system-call-btn btn-download">⬇️ 下载音频</a>
         `;
         return;
     }
@@ -371,17 +356,17 @@ async function playMedia(personName, fileName) {
             const text = await file.text();
             modalPreviewBox.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
         } catch (e) {
-            modalPreviewBox.innerHTML = `<a href="${fileUrl}" download="${fileName}" class="system-call-btn">⬇️ 下载</a>`;
+            modalPreviewBox.innerHTML = `<div class="empty-state">❌ 无法读取文本</div>`;
         }
         return;
     }
     
-    // ----- 其他文件 -----
+    // ----- 其他文件：只显示文件名 -----
     modalPreviewBox.innerHTML = `
         <div style="text-align:center; padding:20px;">
             <div style="font-size:4rem; margin-bottom:10px;">📄</div>
             <p style="color:#666;">${escapeHtml(fileName)}</p>
-            <a href="${fileUrl}" download="${fileName}" class="system-call-btn btn-download">⬇️ 下载文件</a>
+            <p style="font-size:0.8rem; color:#999;">该文件类型暂不支持预览</p>
         </div>
     `;
 }
@@ -397,11 +382,9 @@ window.onload = function() {
     const isHttp = detectMode();
     
     if (isHttp) {
-        // HTTP模式：直接加载manifest
         loadHttpManifest();
         personListDiv.style.display = 'block';
     } else {
-        // 本地模式：等待用户授权
         if (!('showDirectoryPicker' in window)) {
             statusLabel.innerHTML = '⚠️ 浏览器不兼容，请使用 Chrome 86+ 或启动HTTP服务器';
             authorizeBtn.disabled = true;
