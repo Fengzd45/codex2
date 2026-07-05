@@ -57,6 +57,26 @@
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c5a2c; color: white; padding: 10px 24px; border-radius: 30px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; z-index: 2000; pointer-events: none; }
         .toast.show { opacity: 1; }
         
+        /* 视频加载失败时的备用方案 */
+        .video-fallback { 
+            text-align: center; 
+            padding: 20px; 
+            color: #666; 
+            font-size: 0.9rem;
+            background: #f8f8f8;
+            border-radius: 12px;
+            width: 100%;
+        }
+        .video-fallback a { color: #8b5a2b; font-weight: bold; }
+        
+        .debug-info {
+            font-size: 0.7rem;
+            color: #999;
+            margin-top: 8px;
+            word-break: break-all;
+            text-align: center;
+        }
+        
         @media (max-width: 600px) {
             .person-stats { font-size: 0.7rem; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
             .person-row { padding: 12px 14px; flex-wrap: wrap; gap: 6px; }
@@ -275,12 +295,69 @@ function inspectPerson(name) {
     }
 }
 
+// ============================================================
+// 🔥 核心修复：使用多种方法加载视频，确保兼容性
+// ============================================================
+function loadVideoWithFallback(videoElement, src, fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+    
+    // 方法1：设置 src 属性（最直接）
+    videoElement.src = src;
+    videoElement.load();
+    
+    // 方法2：使用 source 子元素（备用）
+    const source = document.createElement('source');
+    source.src = src;
+    if (ext === 'mp4') source.type = 'video/mp4';
+    else if (ext === 'webm') source.type = 'video/webm';
+    else if (ext === 'mov') source.type = 'video/quicktime';
+    videoElement.appendChild(source);
+    
+    // 方法3：如果 5 秒后仍未加载，尝试重新加载
+    let reloadAttempts = 0;
+    const maxAttempts = 3;
+    
+    const tryReload = () => {
+        if (reloadAttempts >= maxAttempts) return;
+        reloadAttempts++;
+        setTimeout(() => {
+            if (videoElement.readyState === 0) {
+                console.log(`🔄 视频未加载，尝试重新加载 (${reloadAttempts}/${maxAttempts})`);
+                videoElement.src = src + '?t=' + Date.now();
+                videoElement.load();
+                tryReload();
+            }
+        }, 3000);
+    };
+    
+    // 监听加载错误，尝试重新加载
+    videoElement.addEventListener('error', function(e) {
+        console.warn('⚠️ 视频加载错误:', e);
+        if (reloadAttempts < maxAttempts) {
+            reloadAttempts++;
+            setTimeout(() => {
+                console.log(`🔄 错误后重新加载 (${reloadAttempts}/${maxAttempts})`);
+                videoElement.src = src + '?t=' + Date.now();
+                videoElement.load();
+            }, 1000);
+        }
+    });
+    
+    // 5秒后检查是否加载成功
+    setTimeout(() => {
+        if (videoElement.readyState === 0 && reloadAttempts < maxAttempts) {
+            tryReload();
+        }
+    }, 5000);
+}
+
 async function playMedia(personName, fileName) {
     modalPreviewBox.innerHTML = '<div class="empty-state">⏳ 正在加载媒体资源...</div>';
     const fileUrl = getFileUrl(personName, fileName);
     currentFileUrl = fileUrl;
     const ext = fileName.split('.').pop().toLowerCase();
     const downloadSection = `<div><a href="${fileUrl}" download="${fileName}" class="download-btn">⬇️ 下载此文件</a></div>`;
+    const debugInfo = `<div class="debug-info">📎 ${fileUrl}</div>`;
 
     // 高亮当前选中的文件
     document.querySelectorAll('.file-item-modal').forEach(el => {
@@ -290,27 +367,79 @@ async function playMedia(personName, fileName) {
     setTimeout(async () => {
         try {
             if (['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext)) {
-                modalPreviewBox.innerHTML = `<div><img src="${fileUrl}" alt="图片加载失败" style="max-width:100%; max-height:320px; object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'empty-state\\'>⚠️ 图片加载失败</div>'"><br>${downloadSection}</div>`;
+                modalPreviewBox.innerHTML = `<div><img src="${fileUrl}" alt="图片加载失败" style="max-width:100%; max-height:320px; object-fit:contain;" onerror="this.parentElement.innerHTML='<div class=\\'empty-state\\'>⚠️ 图片加载失败</div>'"><br>${downloadSection}${debugInfo}</div>`;
             } else if (['mp4','webm','mov','avi','mkv'].includes(ext)) {
-                // ✅ 修复：使用更可靠的视频加载方式，与 family2.html 保持一致
+                // 🔥 修复：使用更可靠的视频加载方式
+                const videoId = 'video_' + Date.now();
                 modalPreviewBox.innerHTML = `
                 <div style="width:100%; display:flex; flex-direction:column; align-items:center;">
-                    <video controls playsinline webkit-playsinline preload="metadata" style="width:100%; max-height:320px; background:#000; border-radius:8px;" 
-                           onerror="this.parentElement.innerHTML='<div class=\\'empty-state\\'>⚠️ 视频加载失败，请尝试下载查看</div>'">
-                        <source src="${fileUrl}" type="video/mp4">
-                        <source src="${fileUrl}" type="video/webm">
+                    <video id="${videoId}" controls playsinline webkit-playsinline preload="auto" 
+                           style="width:100%; max-height:320px; background:#000; border-radius:8px;"
+                           crossorigin="anonymous">
                         您的设备不支持在线直接播放此视频。
                     </video>
-                    <br>${downloadSection}
+                    <div style="width:100%; text-align:center; margin-top:8px;">
+                        <button id="reloadVideoBtn" style="background:#8b5a2b; color:white; border:none; padding:4px 16px; border-radius:16px; cursor:pointer; font-size:0.75rem;">🔄 重新加载</button>
+                        <span id="videoStatus" style="font-size:0.7rem; color:#999; margin-left:10px;">加载中...</span>
+                    </div>
+                    <br>${downloadSection}${debugInfo}
                 </div>`;
+                
+                // 获取视频元素并加载
+                const videoEl = document.getElementById(videoId);
+                if (videoEl) {
+                    // 设置跨域属性
+                    videoEl.crossOrigin = 'anonymous';
+                    
+                    // 加载视频
+                    loadVideoWithFallback(videoEl, fileUrl, fileName);
+                    
+                    // 状态更新
+                    const statusEl = document.getElementById('videoStatus');
+                    videoEl.addEventListener('loadedmetadata', () => {
+                        if (statusEl) {
+                            const duration = videoEl.duration;
+                            if (isFinite(duration)) {
+                                statusEl.textContent = `✅ 已加载 (${Math.round(duration)}秒)`;
+                                statusEl.style.color = '#2c5a2c';
+                            }
+                        }
+                    });
+                    videoEl.addEventListener('canplaythrough', () => {
+                        if (statusEl) {
+                            statusEl.textContent = '✅ 可以播放';
+                            statusEl.style.color = '#2c5a2c';
+                        }
+                    });
+                    videoEl.addEventListener('error', (e) => {
+                        if (statusEl) {
+                            statusEl.textContent = '⚠️ 加载失败，请尝试下载查看';
+                            statusEl.style.color = '#c00';
+                        }
+                        console.warn('视频加载错误:', e);
+                    });
+                    
+                    // 重新加载按钮
+                    const reloadBtn = document.getElementById('reloadVideoBtn');
+                    if (reloadBtn) {
+                        reloadBtn.onclick = () => {
+                            if (statusEl) {
+                                statusEl.textContent = '🔄 重新加载中...';
+                                statusEl.style.color = '#999';
+                            }
+                            videoEl.src = fileUrl + '?t=' + Date.now();
+                            videoEl.load();
+                        };
+                    }
+                }
             } else if (['mp3','wav','flac','aac'].includes(ext)) {
                 modalPreviewBox.innerHTML = `
                 <div style="width:100%; display:flex; flex-direction:column; align-items:center;">
-                    <audio controls preload="metadata" style="width:100%; margin:20px 0;">
+                    <audio controls preload="auto" style="width:100%; margin:20px 0;" crossorigin="anonymous">
                         <source src="${fileUrl}" type="audio/mpeg">
                         您的设备不支持在线播放此音频。
                     </audio>
-                    <br>${downloadSection}
+                    <br>${downloadSection}${debugInfo}
                 </div>`;
             } else if (['txt','md','json','xml'].includes(ext)) {
                 try {
@@ -318,19 +447,19 @@ async function playMedia(personName, fileName) {
                     if (resp.ok) {
                         let text = await resp.text();
                         let linkified = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#8b5a2b;">$1</a>');
-                        modalPreviewBox.innerHTML = `<div class="preview-text">${escapeHtml(linkified)}</div><br>${downloadSection}`;
+                        modalPreviewBox.innerHTML = `<div class="preview-text">${escapeHtml(linkified)}</div><br>${downloadSection}${debugInfo}`;
                     } else {
                         throw new Error('HTTP ' + resp.status);
                     }
                 } catch(e) {
-                    modalPreviewBox.innerHTML = `<div class="empty-state">📄 文本载入失败</div><br>${downloadSection}`;
+                    modalPreviewBox.innerHTML = `<div class="empty-state">📄 文本载入失败</div><br>${downloadSection}${debugInfo}`;
                 }
             } else {
                 modalPreviewBox.innerHTML = `
                 <div style="text-align:center;">
                     <p style="margin:20px 0; color:#8b5a2b; font-weight:bold;">📄 该格式暂不支持在线预览</p>
                     <p style="font-size:0.8rem; color:#999;">文件: ${escapeHtml(fileName)}</p>
-                    ${downloadSection}
+                    ${downloadSection}${debugInfo}
                 </div>`;
             }
         } catch (e) {
@@ -359,210 +488,6 @@ window.onload = async function() {
         statusLabel.innerHTML = '❌ 未找到有效清单，请确保 manifest.json 在当前仓库下。';
         statusLabel.style.color = '#c00';
         personListDiv.innerHTML = `<div class="empty-state">⚠️ 加载失败: ${e.message}<br>请检查 manifest.json 是否存在。</div>`;
-    }
-};
-</script>
-</body>
-</html>        .file-item-modal { display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #e8e0d0; cursor: pointer; font-size: 0.9rem; transition: background 0.15s; }
-        .file-item-modal:last-child { border-bottom: none; }
-        .file-item-modal:hover { background: #f0e8d8; }
-        .file-icon { margin-right: 12px; font-size: 1.2rem; }
-        .file-name { flex: 1; word-break: break-all; color: #5c3a1a; }
-        
-        .preview-box { background: white; border-radius: 16px; border: 1px solid #e0d6c0; padding: 16px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .preview-box img, .preview-box video, .preview-box audio { max-width: 100%; max-height: 350px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); display: block; margin: 0 auto; }
-        .preview-text { text-align: left; white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 0.8rem; border: 1px solid #ddd; width: 100%; word-break: break-all; }
-        
-        .download-btn { display: inline-block; margin-top: 14px; padding: 8px 20px; background: #8b5a2b; color: white; text-decoration: none; border-radius: 20px; font-size: 0.8rem; font-weight: bold; text-align: center; }
-        .empty-state { text-align: center; color: #a69e8a; padding: 40px 20px; font-size: 1rem; }
-        .footer { text-align: center; padding: 16px; font-size: 0.75rem; color: #a09885; border-top: 1px solid #e8e2d4; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div class="header">
-        <h1>📂 家族资料库 · 媒体中心</h1>
-        <p>点击姓名查看多媒体资料 | 线上自动同步模式</p>
-    </div>
-    <div class="content">
-        <div class="status-bar">
-            <div class="status-info" id="statusLabel">🌐 线上模式 | 正在全自动拉取多媒体清单...</div>
-        </div>
-
-        <div id="personList" class="person-list">
-            <div class="empty-state">正在等待加载数据源...</div>
-        </div>
-    </div>
-    <div class="footer">家族亲戚关系网查询系统 | 媒体中心</div>
-</div>
-
-<div id="mediaModal" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header">
-            <h3 id="modalTitle">资料附件</h3>
-            <button class="modal-close" id="closeModalBtn">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="file-list-modal" id="modalFileList"></div>
-            <div class="preview-box" id="modalPreviewBox">
-                <div class="empty-state">点击上方文件列表进行预览</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-let manifestData = null;
-const WEB_BASE_PATH = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + '/资料文件夹/';
-
-const statusLabel = document.getElementById('statusLabel');
-const personListDiv = document.getElementById('personList');
-const mediaModal = document.getElementById('mediaModal');
-const modalTitle = document.getElementById('modalTitle');
-const modalFileList = document.getElementById('modalFileList');
-const modalPreviewBox = document.getElementById('modalPreviewBox');
-const closeModalBtn = document.getElementById('closeModalBtn');
-
-function openModal() { mediaModal.classList.add('active'); }
-function closeModal() { 
-    modalPreviewBox.innerHTML = '<div class="empty-state">点击上方文件列表进行预览</div>';
-    mediaModal.classList.remove('active'); 
-}
-closeModalBtn.onclick = closeModal;
-mediaModal.onclick = (e) => { if (e.target === mediaModal) closeModal(); };
-
-function getFileUrl(personName, fileName) {
-    return WEB_BASE_PATH + encodeURIComponent(personName) + '/' + encodeURIComponent(fileName);
-}
-
-function renderUI(data) {
-    manifestData = data;
-    const keys = Object.keys(data);
-    if (keys.length === 0) {
-        personListDiv.innerHTML = '<div class="empty-state">📭 清单内未检测到任何人员多媒体档案。</div>';
-        return;
-    }
-
-    let html = '';
-    keys.forEach(name => {
-        const files = data[name] || [];
-        let imgs = 0, vids = 0, others = 0;
-        files.forEach(f => {
-            const ext = f.split('.').pop().toLowerCase();
-            if(['jpg','jpeg','png','gif','webp'].includes(ext)) imgs++;
-            else if(['mp4','webm','mov','avi'].includes(ext)) vids++;
-            else others++;
-        });
-        
-        html += `
-        <div class="person-row" onclick="inspectPerson('${escapeHtml(name)}')">
-            <span class="person-name">👤 ${escapeHtml(name)}</span>
-            <div class="person-stats">
-                <span>🖼️ 图片: ${imgs}</span>
-                <span>🎬 视频: ${vids}</span>
-                <span class="stat-total">📦 共 ${files.length} 个文件</span>
-            </div>
-        </div>`;
-    });
-    personListDiv.innerHTML = html;
-}
-
-function inspectPerson(name) {
-    modalTitle.textContent = `📁 ${name} 的多媒体档案`;
-    const files = manifestData[name] || [];
-    
-    if (files.length === 0) {
-        modalFileList.innerHTML = '<div class="empty-state">该人员目录下无受支持的文件</div>';
-        modalPreviewBox.innerHTML = '';
-        openModal();
-        return;
-    }
-
-    let fileHtml = '';
-    files.forEach((fname) => {
-        const ext = fname.split('.').pop().toLowerCase();
-        let icon = '📄';
-        if(['jpg','jpeg','png','gif','webp'].includes(ext)) icon = '🖼️';
-        else if(['mp4','webm','mov','avi'].includes(ext)) icon = '🎬';
-        else if(['mp3','wav','flac'].includes(ext)) icon = '🎵';
-        
-        fileHtml += `
-        <div class="file-item-modal" onclick="playMedia('${escapeHtml(name)}', '${escapeHtml(fname)}')">
-            <span class="file-icon">${icon}</span>
-            <span class="file-name">${escapeHtml(fname)}</span>
-        </div>`;
-    });
-    modalFileList.innerHTML = fileHtml;
-    openModal();
-
-    if(files.length > 0) {
-        playMedia(name, files[0]);
-    }
-}
-
-async function playMedia(personName, fileName) {
-    modalPreviewBox.innerHTML = '<div class="empty-state">⏳ 正在加载媒体资源...</div>';
-    const fileUrl = getFileUrl(personName, fileName);
-    const ext = fileName.split('.').pop().toLowerCase();
-    const downloadSection = `<div><a href="${fileUrl}" download="${fileName}" class="download-btn">⬇️ 下载此文件</a></div>`;
-
-    setTimeout(async () => {
-        if(['jpg','jpeg','png','gif','webp'].includes(ext)) {
-            modalPreviewBox.innerHTML = `<div><img src="${fileUrl}" alt="图片加载失败" style="max-width:100%; max-height:350px;"><br>${downloadSection}</div>`;
-        } else if(['mp4','webm','mov'].includes(ext)) {
-            // 同步 family2.html 的视频播放逻辑：直接对 video 标签增加 src 保证最大程度支持多样化编码的 mp4 
-            modalPreviewBox.innerHTML = `
-            <div style="width:100%;">
-                <video controls playsinline webkit-playsinline width="100%" src="${fileUrl}" style="background:#000; max-height:350px;">
-                    您的设备不支持在线直接播放此视频。
-                </video>
-                <br>${downloadSection}
-            </div>`;
-        } else if(['mp3','wav'].includes(ext)) {
-            // 同步 family2.html 支持音频文件在线播放
-            modalPreviewBox.innerHTML = `
-            <div style="width:100%;">
-                <audio controls src="${fileUrl}" style="width:100%; margin: 20px 0;"></audio>
-                <br>${downloadSection}
-            </div>`;
-        } else if(ext === 'txt') {
-            // 同步 family2.html 支持文本预览以及文本内 URL 链接点击跳转
-            try {
-                const resp = await fetch(fileUrl);
-                if (resp.ok) {
-                    let text = await resp.text();
-                    let linkified = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
-                    modalPreviewBox.innerHTML = `<div class="preview-text">${linkified}</div><br>${downloadSection}`;
-                } else { throw new Error(); }
-            } catch(e) {
-                modalPreviewBox.innerHTML = `<div><p style="margin:20px 0; color:#8b5a2b; font-weight:bold;">📄 文本载入失败</p>${downloadSection}</div>`;
-            }
-        } else {
-            modalPreviewBox.innerHTML = `
-            <div>
-                <p style="margin:20px 0; color:#8b5a2b; font-weight:bold;">📄 该格式暂不支持在线预览</p>
-                ${downloadSection}
-            </div>`;
-        }
-    }, 50);
-}
-
-function escapeHtml(str) {
-    return str.replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
-}
-
-window.onload = async function() {
-    try {
-        const response = await fetch('manifest.json?v=' + Date.now());
-        if (response.ok) {
-            const data = await response.json();
-            statusLabel.innerHTML = `✅ 线上同步成功！已成功载入多媒体数据。`;
-            renderUI(data);
-        } else { throw new Error(); }
-    } catch (e) {
-        statusLabel.innerHTML = '❌ 未找到有效清单，请确保 manifest.json 在当前仓库下。';
-        statusLabel.style.color = '#c00';
     }
 };
 </script>
